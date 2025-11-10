@@ -114,6 +114,7 @@ app.get('/sales-crm', (c) => {
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <link href="/static/ui-enhancements.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     </head>
     <body class="bg-gray-50 min-h-screen">
         <div id="app" class="container mx-auto px-4 py-6"></div>
@@ -121,6 +122,7 @@ app.get('/sales-crm', (c) => {
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
         <script src="/static/ui-enhancements.js"></script>
+        <script src="/static/feature-enhancements.js"></script>
         <script src="/static/sales-crm.js"></script>
     </body>
     </html>
