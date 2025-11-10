@@ -3437,6 +3437,22 @@ async function renderWeeklyReportView() {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6); // Sunday
   
+  // Load weekly stats from API
+  const weekStartStr = dayjs(weekStart).format('YYYY-MM-DD');
+  const weekEndStr = dayjs(weekEnd).format('YYYY-MM-DD');
+  let weeklyStats = null;
+  
+  try {
+    const response = await axios.get(`/api/sales-weekly-reports/stats?week_start=${weekStartStr}&week_end=${weekEndStr}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    if (response.data.success) {
+      weeklyStats = response.data.stats;
+    }
+  } catch (error) {
+    console.error('Failed to load weekly stats:', error);
+  }
+  
   // Load weekly KPIs for comparison
   const currentMonth = dayjs().format('YYYY-MM');
   const kpis = await loadKPIs('monthly', currentMonth);
@@ -3577,6 +3593,47 @@ async function renderWeeklyReportView() {
       </div>
     </div>
   `;
+  
+  // Auto-fill fields with weekly stats from API
+  if (weeklyStats) {
+    setTimeout(() => {
+      // Set appointments (新規アポイント数)
+      const appointmentsInput = document.getElementById('weekly-appointments');
+      if (appointmentsInput && weeklyStats.new_appointments_count) {
+        appointmentsInput.value = weeklyStats.new_appointments_count;
+        updateWeeklyAchievement('appointments', weeklyStats.new_appointments_count, appointmentsTarget);
+      }
+      
+      // Set qualified (見込み化数 = new_prospects_count)
+      const qualifiedInput = document.getElementById('weekly-qualified');
+      if (qualifiedInput && weeklyStats.new_prospects_count) {
+        qualifiedInput.value = weeklyStats.new_prospects_count;
+        updateWeeklyAchievement('qualified', weeklyStats.new_prospects_count, qualifiedTarget);
+      }
+      
+      // Set negotiations (商談数 = meetings_held)
+      const negotiationsInput = document.getElementById('weekly-negotiations');
+      if (negotiationsInput && weeklyStats.meetings_held) {
+        negotiationsInput.value = weeklyStats.meetings_held;
+        updateWeeklyAchievement('negotiations', weeklyStats.meetings_held, negotiationsTarget);
+      }
+      
+      // Set contracts (契約数 = deals_won)
+      const contractsInput = document.getElementById('weekly-contracts');
+      if (contractsInput && weeklyStats.deals_won) {
+        contractsInput.value = weeklyStats.deals_won;
+        updateWeeklyAchievement('contracts', weeklyStats.deals_won, contractsTarget);
+      }
+      
+      // Set revenue (売上 = revenue_generated / 10000 to convert to 万円)
+      const revenueInput = document.getElementById('weekly-revenue');
+      if (revenueInput && weeklyStats.revenue_generated) {
+        const revenueInManYen = (weeklyStats.revenue_generated / 10000).toFixed(1);
+        revenueInput.value = revenueInManYen;
+        updateWeeklyRevenueAndUnitPrice();
+      }
+    }, 100);
+  }
 }
 
 function renderWeeklyKPICard(type, label, icon, color, target) {

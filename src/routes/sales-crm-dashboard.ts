@@ -189,11 +189,20 @@ app.get('/', async (c) => {
     // ===========================================
     // 6. KPI達成率（今月の目標 vs 実績）
     // ===========================================
-    // 仮の目標値（将来的にはkpi_monthly_goalsテーブルから取得）
+    // KPI目標値を取得（kpi_monthly_goalsテーブルから）
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    
+    const kpiGoalsQuery = await DB.prepare(`
+      SELECT deals_goal, appointments_goal, revenue_goal
+      FROM kpi_monthly_goals
+      WHERE user_id = ? AND year = ? AND month = ?
+    `).bind(userId, currentYear, currentMonth).first();
+
     const monthlyGoals = {
-      deals: 5,           // 月間成約目標: 5件
-      appointments: 20,   // 月間アポ目標: 20件
-      revenue: 2000000    // 月間売上目標: 200万円
+      deals: kpiGoalsQuery?.deals_goal || 5,
+      appointments: kpiGoalsQuery?.appointments_goal || 20,
+      revenue: kpiGoalsQuery?.revenue_goal || 2000000
     };
 
     const dealsAchievement = monthlyGoals.deals > 0 
@@ -326,6 +335,129 @@ app.get('/', async (c) => {
 
   } catch (error: any) {
     console.error('Dashboard data fetch failed:', error);
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/sales-crm/dashboard/kpi-goals
+ * KPI月間目標の保存・更新
+ */
+app.post('/kpi-goals', async (c) => {
+  try {
+    const { DB } = c.env;
+    const user = c.get('user');
+    const userId = user?.id;
+    const data = await c.req.json();
+
+    // 年月の取得（指定がない場合は今月）
+    const year = data.year || new Date().getFullYear();
+    const month = data.month || (new Date().getMonth() + 1);
+
+    // 既存の目標を確認
+    const existing = await DB.prepare(`
+      SELECT id FROM kpi_monthly_goals
+      WHERE user_id = ? AND year = ? AND month = ?
+    `).bind(userId, year, month).first();
+
+    if (existing) {
+      // 更新
+      await DB.prepare(`
+        UPDATE kpi_monthly_goals
+        SET deals_goal = ?,
+            appointments_goal = ?,
+            revenue_goal = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(
+        data.deals_goal,
+        data.appointments_goal,
+        data.revenue_goal,
+        existing.id
+      ).run();
+
+      return c.json({
+        success: true,
+        message: 'KPI目標を更新しました'
+      });
+    } else {
+      // 新規作成
+      await DB.prepare(`
+        INSERT INTO kpi_monthly_goals (
+          user_id, year, month, deals_goal, appointments_goal, revenue_goal
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
+        userId,
+        year,
+        month,
+        data.deals_goal,
+        data.appointments_goal,
+        data.revenue_goal
+      ).run();
+
+      return c.json({
+        success: true,
+        message: 'KPI目標を保存しました'
+      });
+    }
+  } catch (error: any) {
+    console.error('KPI goals save failed:', error);
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/sales-crm/dashboard/kpi-goals
+ * KPI月間目標の取得
+ */
+app.get('/kpi-goals', async (c) => {
+  try {
+    const { DB } = c.env;
+    const user = c.get('user');
+    const userId = user?.id;
+
+    // 年月の取得（指定がない場合は今月）
+    const year = parseInt(c.req.query('year') || new Date().getFullYear().toString());
+    const month = parseInt(c.req.query('month') || (new Date().getMonth() + 1).toString());
+
+    const goals = await DB.prepare(`
+      SELECT deals_goal, appointments_goal, revenue_goal, year, month
+      FROM kpi_monthly_goals
+      WHERE user_id = ? AND year = ? AND month = ?
+    `).bind(userId, year, month).first();
+
+    if (goals) {
+      return c.json({
+        success: true,
+        goals: {
+          deals_goal: goals.deals_goal,
+          appointments_goal: goals.appointments_goal,
+          revenue_goal: goals.revenue_goal,
+          year: goals.year,
+          month: goals.month
+        }
+      });
+    } else {
+      // デフォルト値を返す
+      return c.json({
+        success: true,
+        goals: {
+          deals_goal: 5,
+          appointments_goal: 20,
+          revenue_goal: 2000000,
+          year,
+          month
+        }
+      });
+    }
+  } catch (error: any) {
+    console.error('KPI goals fetch failed:', error);
     return c.json({
       success: false,
       error: error.message
