@@ -4,7 +4,11 @@
 -- SQLiteはALTER TABLE ... MODIFY COLUMNをサポートしていないため、
 -- テーブルを再作成する必要があります
 
--- 1. 一時テーブルを作成（新しいステータス制約付き）
+-- 1. 外部キーチェックを一時的に無効化
+PRAGMA foreign_keys=OFF;
+
+-- 2. 一時テーブルを作成（新しいステータス制約付き + ai_research/deep_research カラム追加）
+-- Note: 外部キー制約は削除（usersテーブルが存在しないため）
 CREATE TABLE prospects_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   company_name TEXT NOT NULL,
@@ -30,25 +34,32 @@ CREATE TABLE prospects_new (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   is_partnership INTEGER NOT NULL DEFAULT 0 CHECK(is_partnership IN (0, 1)),
-  master_contact_id INTEGER
+  master_contact_id INTEGER,
+  ai_research TEXT,
+  deep_research TEXT
 );
 
--- 2. データをコピー
+-- 3. データをコピー
 INSERT INTO prospects_new 
 SELECT id, company_name, company_url, industry, company_size, contact_name, 
        contact_position, contact_email, contact_phone, sales_id, status, source, 
        priority, estimated_value, expected_close_date, notes, created_at, updated_at,
-       is_partnership, master_contact_id
+       is_partnership, master_contact_id, NULL, NULL
 FROM prospects;
 
--- 3. 古いテーブルを削除
+-- 4. 古いテーブルを削除
 DROP TABLE prospects;
 
--- 4. 新しいテーブルをリネーム
+-- 5. 新しいテーブルをリネーム
 ALTER TABLE prospects_new RENAME TO prospects;
 
--- 5. インデックスを再作成
+-- 6. インデックスを再作成
 CREATE INDEX IF NOT EXISTS idx_prospects_sales_id ON prospects(sales_id);
 CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects(status);
 CREATE INDEX IF NOT EXISTS idx_prospects_priority ON prospects(priority);
 CREATE INDEX IF NOT EXISTS idx_prospects_is_partnership ON prospects(is_partnership);
+CREATE INDEX IF NOT EXISTS idx_prospects_ai_research ON prospects(id) WHERE ai_research IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_prospects_deep_research ON prospects(id) WHERE deep_research IS NOT NULL;
+
+-- 7. 外部キーチェックを再有効化
+PRAGMA foreign_keys=ON;
