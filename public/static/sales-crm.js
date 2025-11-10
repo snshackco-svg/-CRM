@@ -5,6 +5,7 @@ let currentView = 'prospects'; // prospects, prospect-detail, connections, setti
 let currentProspect = null;
 let prospects = [];
 let connections = [];
+let meetings = [];
 
 // Check authentication
 function checkAuth() {
@@ -175,6 +176,26 @@ async function loadProspects(sortBy = 'updated_at', status = 'all', month = null
   } catch (error) {
     console.error('Failed to load prospects:', error);
     showToast('見込み客の読み込みに失敗しました', 'error');
+  }
+}
+
+async function loadMeetings(month = null) {
+  try {
+    let url = `/api/meetings`;
+    if (month) {
+      url += `?month=${month}`;
+    }
+    
+    const response = await axios.get(url, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      meetings = response.data.meetings;
+    }
+  } catch (error) {
+    console.error('Failed to load meetings:', error);
+    showToast('商談履歴の読み込みに失敗しました', 'error');
   }
 }
 
