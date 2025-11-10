@@ -7,6 +7,49 @@ async function renderAppointmentPrepView() {
   
   const contentArea = document.getElementById('content-area');
   
+  contentArea.innerHTML = `
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">
+        <i class="fas fa-clipboard-check mr-2 text-indigo-600"></i>アポイント準備
+      </h2>
+      <p class="text-gray-600">アポイント準備とリサーチを管理できます</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="grid grid-cols-2 gap-2 mb-6">
+      <button onclick="switchPrepTab('appointments')" id="prep-tab-appointments" class="prep-tab px-6 py-3 rounded-xl font-bold text-sm transition shadow-md bg-indigo-600 text-white">
+        <i class="fas fa-calendar-check mr-2"></i>アポ準備
+      </button>
+      <button onclick="switchPrepTab('research')" id="prep-tab-research" class="prep-tab px-6 py-3 rounded-xl font-bold text-sm transition shadow-md bg-white text-gray-600 hover:bg-gray-50">
+        <i class="fas fa-search mr-2"></i>リサーチ
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div id="prep-tab-content"></div>
+  `;
+  
+  // Show appointments tab by default
+  switchPrepTab('appointments');
+}
+
+function switchPrepTab(tab) {
+  // Update tab styles
+  document.querySelectorAll('.prep-tab').forEach(t => {
+    t.className = 'prep-tab px-6 py-3 rounded-xl font-bold text-sm transition shadow-md bg-white text-gray-600 hover:bg-gray-50';
+  });
+  document.getElementById(`prep-tab-${tab}`).className = 'prep-tab px-6 py-3 rounded-xl font-bold text-sm transition shadow-md bg-indigo-600 text-white';
+  
+  const contentDiv = document.getElementById('prep-tab-content');
+  
+  if (tab === 'appointments') {
+    renderAppointmentsTab();
+  } else if (tab === 'research') {
+    renderResearchTab();
+  }
+}
+
+function renderAppointmentsTab() {
   // Get upcoming meetings
   const now = new Date();
   const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -22,16 +65,9 @@ async function renderAppointmentPrepView() {
     .sort((a, b) => a.meetingDate - b.meetingDate);
   
   const thisWeekMeetings = upcomingMeetings.filter(m => m.meetingDate <= nextWeek);
-  const nextWeekMeetings = upcomingMeetings.filter(m => m.meetingDate > nextWeek && m.meetingDate <= twoWeeksLater);
   
-  contentArea.innerHTML = `
-    <div class="mb-6">
-      <h2 class="text-2xl font-bold text-gray-800 mb-2">
-        <i class="fas fa-clipboard-check mr-2 text-indigo-600"></i>アポイント準備
-      </h2>
-      <p class="text-gray-600">予定されているアポイントの準備状況を確認できます</p>
-    </div>
-
+  const contentDiv = document.getElementById('prep-tab-content');
+  contentDiv.innerHTML = `
     <!-- Search and Filter -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-6">
       <div class="flex gap-4">
@@ -64,6 +100,192 @@ async function renderAppointmentPrepView() {
   
   // Set initial filter state
   window.currentPrepFilter = 'this-week';
+}
+
+function renderResearchTab() {
+  const contentDiv = document.getElementById('prep-tab-content');
+  
+  contentDiv.innerHTML = `
+    <!-- Search -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+      <input 
+        type="text" 
+        id="research-search" 
+        placeholder="企業名、業種、担当者名で検索..." 
+        class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+        oninput="filterResearch()"
+      >
+    </div>
+
+    <!-- Prospects Grid -->
+    <div id="research-grid">
+      ${renderResearchGrid(prospects)}
+    </div>
+  `;
+}
+
+function renderResearchGrid(prospectsToShow) {
+  if (prospectsToShow.length === 0) {
+    return `
+      <div class="bg-white rounded-xl shadow-md p-8 text-center">
+        <i class="fas fa-building text-6xl text-gray-300 mb-4"></i>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">見込み客がいません</h3>
+        <p class="text-gray-600">見込み客を追加してください</p>
+      </div>
+    `;
+  }
+  
+  return `
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      ${prospectsToShow.map(p => {
+        const hasResearch = p.ai_research && Object.keys(p.ai_research).length > 0;
+        return `
+          <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 cursor-pointer" onclick="viewProspectResearch(${p.id})">
+            <div class="flex justify-between items-start mb-3">
+              <h3 class="text-lg font-bold text-gray-800">${p.company_name}</h3>
+              ${hasResearch ? 
+                '<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold"><i class="fas fa-check mr-1"></i>完了</span>' :
+                '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">未実行</span>'
+              }
+            </div>
+            
+            <div class="space-y-2 text-sm text-gray-600 mb-4">
+              <div><i class="fas fa-industry mr-2"></i>${p.industry || '-'}</div>
+              <div><i class="fas fa-users mr-2"></i>${p.company_size || '-'}</div>
+              <div><i class="fas fa-user-tie mr-2"></i>${p.contact_person || '-'}</div>
+            </div>
+            
+            ${hasResearch ? `
+              <button onclick="event.stopPropagation(); viewProspectResearch(${p.id})" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                <i class="fas fa-eye mr-2"></i>リサーチを見る
+              </button>
+            ` : `
+              <button onclick="event.stopPropagation(); generateResearch(${p.id})" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                <i class="fas fa-robot mr-2"></i>リサーチ生成
+              </button>
+            `}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function filterResearch() {
+  const searchTerm = document.getElementById('research-search')?.value?.toLowerCase();
+  
+  let filteredProspects = prospects;
+  if (searchTerm) {
+    filteredProspects = prospects.filter(p => 
+      p.company_name?.toLowerCase().includes(searchTerm) ||
+      p.industry?.toLowerCase().includes(searchTerm) ||
+      p.contact_person?.toLowerCase().includes(searchTerm)
+    );
+  }
+  
+  document.getElementById('research-grid').innerHTML = renderResearchGrid(filteredProspects);
+}
+
+async function viewProspectResearch(prospectId) {
+  try {
+    const response = await axios.get(`/api/prospects/${prospectId}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      const prospect = response.data.prospect;
+      const research = response.data.ai_research;
+      
+      const contentDiv = document.getElementById('prep-tab-content');
+      
+      if (!research) {
+        contentDiv.innerHTML = `
+          <div class="mb-4">
+            <button onclick="switchPrepTab('research')" class="text-indigo-600 hover:text-indigo-800">
+              <i class="fas fa-arrow-left mr-2"></i>一覧に戻る
+            </button>
+          </div>
+          
+          <div class="bg-white rounded-xl shadow-md p-8 text-center">
+            <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">${prospect.company_name}の事前リサーチがまだ作成されていません</h3>
+            <p class="text-gray-600 mb-4">AIが自動的に企業情報を調査し、商談に役立つ情報を提供します</p>
+            <button onclick="generateResearch(${prospect.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition">
+              <i class="fas fa-robot mr-2"></i>AI事前リサーチを生成
+            </button>
+          </div>
+        `;
+        return;
+      }
+      
+      contentDiv.innerHTML = `
+        <div class="mb-4 flex justify-between items-center">
+          <button onclick="switchPrepTab('research')" class="text-indigo-600 hover:text-indigo-800">
+            <i class="fas fa-arrow-left mr-2"></i>一覧に戻る
+          </button>
+          <h2 class="text-2xl font-bold text-gray-800">${prospect.company_name} - 事前リサーチ</h2>
+          <button onclick="generateResearch(${prospect.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition">
+            <i class="fas fa-sync mr-2"></i>再生成
+          </button>
+        </div>
+        
+        <div class="space-y-4">
+          <!-- Business Overview -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+              <i class="fas fa-briefcase mr-2 text-indigo-600"></i>事業概要
+            </h3>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.business_overview}</p>
+          </div>
+
+          <!-- Key Personnel -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+              <i class="fas fa-user-tie mr-2 text-blue-600"></i>キーパーソン
+            </h3>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.key_personnel}</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Recent News -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-newspaper mr-2 text-green-600"></i>最近のニュース
+              </h3>
+              <p class="text-gray-700 whitespace-pre-wrap">${research.recent_news}</p>
+            </div>
+
+            <!-- Pain Points -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-exclamation-triangle mr-2 text-orange-600"></i>課題・ペインポイント
+              </h3>
+              <p class="text-gray-700 whitespace-pre-wrap">${research.pain_points}</p>
+            </div>
+          </div>
+
+          <!-- Opportunities -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+              <i class="fas fa-lightbulb mr-2 text-yellow-600"></i>商機・アプローチ案
+            </h3>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.opportunities}</p>
+          </div>
+
+          <!-- Suggested Approach -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+              <i class="fas fa-route mr-2 text-purple-600"></i>推奨アプローチ
+            </h3>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.suggested_approach}</p>
+          </div>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Failed to load prospect research:', error);
+    showToast('リサーチ情報の読み込みに失敗しました', 'error');
+  }
 }
 
 function renderAppointmentsGrid(meetingsToShow, period = 'this-week') {
