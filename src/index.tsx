@@ -123,6 +123,7 @@ app.get('/sales-crm', (c) => {
         <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
         <script src="/static/ui-enhancements.js"></script>
         <script src="/static/feature-enhancements.js"></script>
+        <script src="/static/data-management.js"></script>
         <script src="/static/sales-crm.js"></script>
     </body>
     </html>
