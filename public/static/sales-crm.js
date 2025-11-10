@@ -3724,28 +3724,36 @@ async function renderWeeklyReportView() {
     console.error('Failed to load weekly stats:', error);
   }
   
-  // Load KPI goals from new API
+  // Load weekly KPI goals from new API
   const year = today.getFullYear();
   const month = today.getMonth() + 1;
-  let kpiGoals = null;
+  let weeklyKpiGoals = null;
+  
+  // Calculate week number in month
+  const firstDayOfMonth = new Date(year, month - 1, 1);
+  const weekNumber = Math.ceil((weekStart.getDate() + firstDayOfMonth.getDay()) / 7);
   
   try {
-    const response = await axios.get(`/api/sales-crm/dashboard/kpi-goals?year=${year}&month=${month}`, {
+    const response = await axios.get(`/api/sales-crm/dashboard/kpi-weekly-goals?year=${year}&month=${month}`, {
       headers: { 'X-Session-Token': sessionToken }
     });
-    if (response.data.success) {
-      kpiGoals = response.data.goals;
+    if (response.data.success && response.data.goals) {
+      // Find the goal for current week
+      weeklyKpiGoals = response.data.goals.find(goal => goal.week_number === weekNumber);
     }
   } catch (error) {
-    console.error('Failed to load KPI goals:', error);
+    console.error('Failed to load weekly KPI goals:', error);
   }
   
-  // Calculate weekly targets from monthly goals (monthly / 4)
-  const appointmentsTarget = (kpiGoals?.appointments_goal || 20) / 4;
-  const qualifiedTarget = (kpiGoals?.appointments_goal || 20) / 4; // 見込み化数もアポ目標から計算
-  const negotiationsTarget = (kpiGoals?.appointments_goal || 20) / 4; // 商談数もアポ目標から計算
-  const contractsTarget = (kpiGoals?.deals_goal || 5) / 4;
-  const revenueTarget = (kpiGoals?.revenue_goal || 2000000) / 40000; // 万円単位に変換して週割り
+  // Set weekly targets from weekly KPI goals (or defaults if not set)
+  const appointmentsTarget = weeklyKpiGoals?.appointments_goal || 5;
+  const qualifiedTarget = weeklyKpiGoals?.qualified_goal || 4;
+  const negotiationsTarget = weeklyKpiGoals?.negotiations_goal || 3;
+  const contractsTarget = weeklyKpiGoals?.deals_goal || 1;
+  const customerUnitPriceTarget = weeklyKpiGoals?.customer_unit_price_goal || 400000;
+  const revenueTarget = (weeklyKpiGoals?.revenue_goal || 500000) / 10000; // 万円単位に変換
+  const grossProfitTarget = (weeklyKpiGoals?.gross_profit_goal || 250000) / 10000; // 万円単位に変換
+  const newAgenciesTarget = weeklyKpiGoals?.new_agencies_goal || 0;
   
   content.innerHTML = `
     <div class="bg-white rounded-xl shadow-lg p-6">
@@ -3759,6 +3767,7 @@ async function renderWeeklyReportView() {
             <h3 class="font-bold text-gray-800">今週の活動報告</h3>
             <p class="text-sm text-gray-600">
               ${dayjs(weekStart).format('YYYY/MM/DD')} - ${dayjs(weekEnd).format('YYYY/MM/DD')}
+              ${weeklyKpiGoals ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">週間KPI設定済</span>` : `<span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">週間KPI未設定（デフォルト値使用）</span>`}
             </p>
           </div>
           <div class="flex gap-3">
@@ -3772,7 +3781,8 @@ async function renderWeeklyReportView() {
         </div>
       </div>
 
-      <!-- KPI Achievement Metrics -->
+      <!-- KPI Achievement Metrics - 基本4項目 -->
+      <h3 class="font-bold text-gray-800 mb-3">営業活動KPI</h3>
       <div class="grid grid-cols-4 gap-4 mb-6">
         ${renderWeeklyKPICard('appointments', 'アポ数', 'calendar-check', 'blue', appointmentsTarget)}
         ${renderWeeklyKPICard('qualified', '見込み化数', 'user-check', 'green', qualifiedTarget)}
@@ -3780,48 +3790,91 @@ async function renderWeeklyReportView() {
         ${renderWeeklyKPICard('contracts', '契約数', 'file-signature', 'purple', contractsTarget)}
       </div>
 
-      <!-- Revenue & Customer Unit Price Cards -->
-      <div class="grid grid-cols-2 gap-4 mb-6">
-        <div class="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-6">
-          <div class="flex justify-between items-center mb-3">
-            <div>
-              <div class="text-sm text-gray-600 mb-2">今週の売上</div>
-              <input type="number" id="weekly-revenue" value="0" 
-                     oninput="updateWeeklyRevenueAndUnitPrice()"
-                     class="text-3xl font-bold text-orange-600 bg-transparent border-b-2 border-orange-300 w-32">
-              <span class="text-2xl font-bold text-orange-600 ml-2">万円</span>
-            </div>
-            <div class="text-right">
-              <div class="text-sm text-gray-600 mb-1">目標: ${revenueTarget.toFixed(1)}万円</div>
-              <div class="text-3xl font-bold" id="revenue-achievement">
-                <span class="text-gray-400">0%</span>
-              </div>
-              <div class="text-xs text-gray-500 mt-1">週間達成率</div>
-            </div>
+      <!-- 売上・利益KPI -->
+      <h3 class="font-bold text-gray-800 mb-3">売上・利益KPI</h3>
+      <div class="grid grid-cols-4 gap-4 mb-6">
+        <!-- 新規売上 -->
+        <div class="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="fas fa-chart-line text-orange-600"></i>
+            <div class="text-sm text-gray-600">新規売上</div>
           </div>
-          <div class="mt-3">
-            <div class="w-full bg-gray-200 rounded-full h-3">
-              <div id="revenue-progress" class="bg-orange-500 h-3 rounded-full transition-all" style="width: 0%"></div>
-            </div>
+          <div class="flex items-end gap-2 mb-2">
+            <input type="number" id="weekly-revenue" value="0" 
+                   oninput="updateWeeklyRevenueAndUnitPrice()"
+                   class="text-2xl font-bold text-orange-600 bg-transparent border-b-2 border-orange-300 w-20">
+            <span class="text-lg text-gray-600">/ ${revenueTarget.toFixed(1)}万円</span>
+          </div>
+          <div class="flex justify-between items-center text-xs mb-2">
+            <span class="text-gray-500">目標</span>
+            <span id="revenue-achievement" class="font-bold text-gray-400">0%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="revenue-progress" class="bg-orange-500 h-2 rounded-full transition-all" style="width: 0%"></div>
           </div>
         </div>
 
-        <div class="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg p-6">
-          <div class="text-sm text-gray-600 mb-2">顧客単価</div>
-          <div class="flex items-baseline gap-2 mb-3">
-            <div class="text-3xl font-bold text-teal-600" id="customer-unit-price">
+        <!-- 顧客単価 -->
+        <div class="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="fas fa-yen-sign text-teal-600"></i>
+            <div class="text-sm text-gray-600">顧客単価</div>
+          </div>
+          <div class="flex items-end gap-2 mb-2">
+            <div class="text-2xl font-bold text-teal-600" id="customer-unit-price">
               <span class="text-gray-400">0</span>
             </div>
-            <span class="text-xl text-teal-600">万円</span>
+            <span class="text-lg text-gray-600">/ ${(customerUnitPriceTarget / 10000).toFixed(1)}万円</span>
           </div>
-          <div class="text-xs text-gray-600 bg-white rounded-lg p-2">
-            <i class="fas fa-calculator mr-1 text-teal-600"></i>
-            売上 <span id="calc-revenue">0</span>万円 ÷ 契約数 <span id="calc-contracts">0</span>件
+          <div class="flex justify-between items-center text-xs mb-2">
+            <span class="text-gray-500">目標</span>
+            <span id="customer-unit-price-achievement" class="font-bold text-gray-400">0%</span>
           </div>
-          <p class="text-xs text-gray-500 mt-2">
-            <i class="fas fa-info-circle mr-1"></i>
-            売上と契約数から自動計算されます
-          </p>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="customer-unit-price-progress" class="bg-teal-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- 粗利 -->
+        <div class="bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="fas fa-coins text-pink-600"></i>
+            <div class="text-sm text-gray-600">粗利</div>
+          </div>
+          <div class="flex items-end gap-2 mb-2">
+            <input type="number" id="weekly-gross-profit" value="0" 
+                   oninput="updateWeeklyAchievement('gross-profit', this.value, ${grossProfitTarget})"
+                   class="text-2xl font-bold text-pink-600 bg-transparent border-b-2 border-pink-300 w-20">
+            <span class="text-lg text-gray-600">/ ${grossProfitTarget.toFixed(1)}万円</span>
+          </div>
+          <div class="flex justify-between items-center text-xs mb-2">
+            <span class="text-gray-500">目標</span>
+            <span id="gross-profit-achievement" class="font-bold text-gray-400">0%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="gross-profit-progress" class="bg-pink-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- 新規代理店数 -->
+        <div class="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="fas fa-handshake text-indigo-600"></i>
+            <div class="text-sm text-gray-600">新規代理店数</div>
+          </div>
+          <div class="flex items-end gap-2 mb-2">
+            <input type="number" id="weekly-new-agencies" value="0" 
+                   oninput="updateWeeklyAchievement('new-agencies', this.value, ${newAgenciesTarget})"
+                   class="text-2xl font-bold text-indigo-600 bg-transparent border-b-2 border-indigo-300 w-16">
+            <span class="text-lg text-gray-600">/ ${newAgenciesTarget}</span>
+          </div>
+          <div class="flex justify-between items-center text-xs mb-2">
+            <span class="text-gray-500">目標</span>
+            <span id="new-agencies-achievement" class="font-bold text-gray-400">0%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="new-agencies-progress" class="bg-indigo-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+          </div>
         </div>
       </div>
 
@@ -3876,39 +3929,56 @@ async function renderWeeklyReportView() {
     setTimeout(() => {
       // Set appointments (新規アポイント数)
       const appointmentsInput = document.getElementById('weekly-appointments');
-      if (appointmentsInput && weeklyStats.new_appointments_count) {
+      if (appointmentsInput && weeklyStats.new_appointments_count !== undefined) {
         appointmentsInput.value = weeklyStats.new_appointments_count;
         updateWeeklyAchievement('appointments', weeklyStats.new_appointments_count, appointmentsTarget);
       }
       
       // Set qualified (見込み化数 = new_prospects_count)
       const qualifiedInput = document.getElementById('weekly-qualified');
-      if (qualifiedInput && weeklyStats.new_prospects_count) {
+      if (qualifiedInput && weeklyStats.new_prospects_count !== undefined) {
         qualifiedInput.value = weeklyStats.new_prospects_count;
         updateWeeklyAchievement('qualified', weeklyStats.new_prospects_count, qualifiedTarget);
       }
       
       // Set negotiations (商談数 = meetings_held)
       const negotiationsInput = document.getElementById('weekly-negotiations');
-      if (negotiationsInput && weeklyStats.meetings_held) {
+      if (negotiationsInput && weeklyStats.meetings_held !== undefined) {
         negotiationsInput.value = weeklyStats.meetings_held;
         updateWeeklyAchievement('negotiations', weeklyStats.meetings_held, negotiationsTarget);
       }
       
       // Set contracts (契約数 = deals_won)
       const contractsInput = document.getElementById('weekly-contracts');
-      if (contractsInput && weeklyStats.deals_won) {
+      if (contractsInput && weeklyStats.deals_won !== undefined) {
         contractsInput.value = weeklyStats.deals_won;
         updateWeeklyAchievement('contracts', weeklyStats.deals_won, contractsTarget);
       }
       
       // Set revenue (売上 = revenue_generated / 10000 to convert to 万円)
       const revenueInput = document.getElementById('weekly-revenue');
-      if (revenueInput && weeklyStats.revenue_generated) {
+      if (revenueInput && weeklyStats.revenue_generated !== undefined) {
         const revenueInManYen = (weeklyStats.revenue_generated / 10000).toFixed(1);
         revenueInput.value = revenueInManYen;
-        updateWeeklyRevenueAndUnitPrice();
       }
+      
+      // Set gross profit (粗利 = gross_profit_generated / 10000 to convert to 万円)
+      const grossProfitInput = document.getElementById('weekly-gross-profit');
+      if (grossProfitInput && weeklyStats.gross_profit_generated !== undefined) {
+        const grossProfitInManYen = (weeklyStats.gross_profit_generated / 10000).toFixed(1);
+        grossProfitInput.value = grossProfitInManYen;
+        updateWeeklyAchievement('gross-profit', grossProfitInManYen, grossProfitTarget);
+      }
+      
+      // Set new agencies (新規代理店数)
+      const newAgenciesInput = document.getElementById('weekly-new-agencies');
+      if (newAgenciesInput && weeklyStats.new_agencies_count !== undefined) {
+        newAgenciesInput.value = weeklyStats.new_agencies_count;
+        updateWeeklyAchievement('new-agencies', weeklyStats.new_agencies_count, newAgenciesTarget);
+      }
+      
+      // Update revenue and customer unit price calculations
+      updateWeeklyRevenueAndUnitPrice();
     }, 100);
   }
 }
@@ -3962,7 +4032,7 @@ function updateWeeklyRevenueAndUnitPrice() {
   const revenue = parseFloat(document.getElementById('weekly-revenue')?.value) || 0;
   const contracts = parseFloat(document.getElementById('weekly-contracts')?.value) || 0;
   
-  // Calculate customer unit price
+  // Calculate customer unit price (in 万円)
   const unitPrice = contracts > 0 ? (revenue / contracts).toFixed(1) : 0;
   
   // Update unit price display
@@ -3971,14 +4041,22 @@ function updateWeeklyRevenueAndUnitPrice() {
     unitPriceEl.innerHTML = `<span class="${unitPrice > 0 ? 'text-teal-600' : 'text-gray-400'}">${unitPrice}</span>`;
   }
   
-  // Update calculation display
-  const calcRevenueEl = document.getElementById('calc-revenue');
-  const calcContractsEl = document.getElementById('calc-contracts');
-  if (calcRevenueEl) calcRevenueEl.textContent = revenue.toFixed(1);
-  if (calcContractsEl) calcContractsEl.textContent = contracts;
+  // Get customer unit price target from the display (extract from "/ XX万円" format)
+  const unitPriceTargetText = document.querySelector('#customer-unit-price')?.parentElement?.nextElementSibling?.textContent;
+  const unitPriceTargetMatch = unitPriceTargetText?.match(/\/\s*([\d.]+)万円/);
+  const customerUnitPriceTarget = unitPriceTargetMatch ? parseFloat(unitPriceTargetMatch[1]) : 0;
   
-  // Update revenue achievement (if target exists)
-  const revenueTarget = parseFloat(document.querySelector('[oninput*="revenue"]')?.getAttribute('data-target')) || 0;
+  // Update customer unit price achievement
+  if (customerUnitPriceTarget > 0 && unitPrice > 0) {
+    updateWeeklyAchievement('customer-unit-price', unitPrice, customerUnitPriceTarget);
+  }
+  
+  // Get revenue target from the display
+  const revenueTargetText = document.querySelector('#weekly-revenue')?.parentElement?.nextElementSibling?.textContent;
+  const revenueTargetMatch = revenueTargetText?.match(/\/\s*([\d.]+)万円/);
+  const revenueTarget = revenueTargetMatch ? parseFloat(revenueTargetMatch[1]) : 0;
+  
+  // Update revenue achievement
   if (revenueTarget > 0) {
     updateWeeklyAchievement('revenue', revenue, revenueTarget);
   }
@@ -4044,6 +4122,9 @@ function submitWeeklyReport() {
     negotiations: document.getElementById('weekly-negotiations')?.value || 0,
     contracts: document.getElementById('weekly-contracts')?.value || 0,
     revenue: document.getElementById('weekly-revenue')?.value || 0,
+    gross_profit: document.getElementById('weekly-gross-profit')?.value || 0,
+    new_agencies: document.getElementById('weekly-new-agencies')?.value || 0,
+    customer_unit_price: document.getElementById('customer-unit-price')?.textContent?.replace(/[^\d.]/g, '') || 0,
     key_achievements: document.getElementById('key-achievements')?.value || '',
     challenges: document.getElementById('challenges')?.value || '',
     next_week_plan: document.getElementById('next-week-plan')?.value || ''
