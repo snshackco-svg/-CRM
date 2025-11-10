@@ -419,7 +419,6 @@ async function viewProspect(prospectId) {
 function renderProspectDetail() {
   const contentArea = document.getElementById('content-area');
   const p = currentProspect.prospect;
-  const research = currentProspect.research;
   const meetings = currentProspect.meetings;
   const todos = currentProspect.todos;
   const matches = currentProspect.matches;
@@ -570,77 +569,7 @@ function renderOverviewTab() {
   `;
 }
 
-function renderResearchTab() {
-  const research = currentProspect.research;
-  const p = currentProspect.prospect;
-  
-  if (!research) {
-    return `
-      <div class="bg-white rounded-xl shadow-md p-8 text-center">
-        <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">事前リサーチがまだ作成されていません</h3>
-        <p class="text-gray-600 mb-4">AIが自動的に企業情報を調査し、商談に役立つ情報を提供します</p>
-        <button onclick="generateResearch(${p.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition">
-          <i class="fas fa-robot mr-2"></i>AI事前リサーチを生成
-        </button>
-      </div>
-    `;
-  }
-  
-  return `
-    <div class="space-y-4">
-      <!-- Business Overview -->
-      <div class="bg-white rounded-xl shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
-          <i class="fas fa-briefcase mr-2 text-indigo-600"></i>事業概要
-        </h3>
-        <p class="text-gray-700 whitespace-pre-wrap">${research.business_overview}</p>
-      </div>
-
-      <!-- Key Personnel -->
-      <div class="bg-white rounded-xl shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
-          <i class="fas fa-user-tie mr-2 text-blue-600"></i>キーパーソン
-        </h3>
-        <p class="text-gray-700 whitespace-pre-wrap">${research.key_personnel}</p>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <!-- Recent News -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-          <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
-            <i class="fas fa-newspaper mr-2 text-green-600"></i>最近のニュース
-          </h3>
-          <p class="text-gray-700 whitespace-pre-wrap">${research.recent_news}</p>
-        </div>
-
-        <!-- Pain Points -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-          <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
-            <i class="fas fa-exclamation-triangle mr-2 text-orange-600"></i>課題・ペインポイント
-          </h3>
-          <p class="text-gray-700 whitespace-pre-wrap">${research.pain_points}</p>
-        </div>
-      </div>
-
-      <!-- Opportunities -->
-      <div class="bg-white rounded-xl shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
-          <i class="fas fa-lightbulb mr-2 text-yellow-600"></i>商機・アプローチ案
-        </h3>
-        <p class="text-gray-700 whitespace-pre-wrap">${research.opportunities}</p>
-      </div>
-
-      <!-- Suggested Approach -->
-      <div class="bg-white rounded-xl shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
-          <i class="fas fa-route mr-2 text-purple-600"></i>推奨アプローチ
-        </h3>
-        <p class="text-gray-700 whitespace-pre-wrap">${research.suggested_approach}</p>
-      </div>
-    </div>
-  `;
-}
+// Note: renderResearchTab function removed - now in appointment-prep.js
 
 function renderMeetingsTab() {
   const meetings = currentProspect.meetings || [];

@@ -62,7 +62,28 @@ app.get('/', async (c) => {
 
     const { results } = await DB.prepare(query).bind(...params).all();
 
-    return c.json({ success: true, prospects: results });
+    // Parse JSON fields for each prospect
+    const parsedResults = results.map((prospect: any) => {
+      if (prospect.ai_research) {
+        try {
+          prospect.ai_research = JSON.parse(prospect.ai_research);
+        } catch (e) {
+          prospect.ai_research = null;
+        }
+      }
+      
+      if (prospect.deep_research) {
+        try {
+          prospect.deep_research = JSON.parse(prospect.deep_research);
+        } catch (e) {
+          prospect.deep_research = null;
+        }
+      }
+      
+      return prospect;
+    });
+
+    return c.json({ success: true, prospects: parsedResults });
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500);
   }
@@ -82,6 +103,23 @@ app.get('/:id', async (c) => {
 
     if (!prospect) {
       return c.json({ success: false, error: 'Prospect not found' }, 404);
+    }
+
+    // Parse JSON fields
+    if (prospect.ai_research) {
+      try {
+        prospect.ai_research = JSON.parse(prospect.ai_research as string);
+      } catch (e) {
+        prospect.ai_research = null;
+      }
+    }
+    
+    if (prospect.deep_research) {
+      try {
+        prospect.deep_research = JSON.parse(prospect.deep_research as string);
+      } catch (e) {
+        prospect.deep_research = null;
+      }
     }
 
     // Get pre-meeting research
