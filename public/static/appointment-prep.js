@@ -725,6 +725,237 @@ async function viewAppointmentPrep(meetingId) {
         </div>
       ` : ''}
       
+      <!-- 1. Preparation Checklist -->
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+          <i class="fas fa-tasks mr-2 text-green-600"></i>準備チェックリスト
+        </h3>
+        <div class="space-y-3">
+          <label class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition">
+            <input type="checkbox" ${prospect.ai_research || prospect.deep_research ? 'checked' : ''} onchange="updateChecklistStatus(${meeting.id}, 'research')" class="w-5 h-5 text-indigo-600 rounded mr-3">
+            <div class="flex-1">
+              <span class="font-semibold text-gray-800">企業リサーチ完了</span>
+              <p class="text-xs text-gray-600">AI事前リサーチまたはDeepリサーチを実施</p>
+            </div>
+            ${prospect.ai_research || prospect.deep_research ? '<i class="fas fa-check-circle text-green-600 text-xl"></i>' : ''}
+          </label>
+          
+          <label class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition">
+            <input type="checkbox" onchange="updateChecklistStatus(${meeting.id}, 'materials')" class="w-5 h-5 text-indigo-600 rounded mr-3">
+            <div class="flex-1">
+              <span class="font-semibold text-gray-800">提案資料準備完了</span>
+              <p class="text-xs text-gray-600">商談用の資料を準備</p>
+            </div>
+          </label>
+          
+          <label class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition">
+            <input type="checkbox" ${meeting.agenda ? 'checked' : ''} onchange="updateChecklistStatus(${meeting.id}, 'agenda')" class="w-5 h-5 text-indigo-600 rounded mr-3">
+            <div class="flex-1">
+              <span class="font-semibold text-gray-800">議題設定完了</span>
+              <p class="text-xs text-gray-600">商談の目的と議題を明確化</p>
+            </div>
+            ${meeting.agenda ? '<i class="fas fa-check-circle text-green-600 text-xl"></i>' : ''}
+          </label>
+          
+          <label class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition">
+            <input type="checkbox" onchange="updateChecklistStatus(${meeting.id}, 'rehearsal')" class="w-5 h-5 text-indigo-600 rounded mr-3">
+            <div class="flex-1">
+              <span class="font-semibold text-gray-800">トークリハーサル完了</span>
+              <p class="text-xs text-gray-600">商談の流れを確認</p>
+            </div>
+          </label>
+        </div>
+      </div>
+      
+      <!-- 2. Today's Appointment Alert (if today) -->
+      ${dayjs(meeting.meeting_date).format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD') ? `
+        <div class="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-xl p-6 mb-6 animate-pulse">
+          <div class="flex items-center gap-4">
+            <i class="fas fa-bell text-4xl text-red-600"></i>
+            <div>
+              <h3 class="text-xl font-bold text-red-800 mb-1">
+                🔔 本日のアポイント！
+              </h3>
+              <p class="text-red-700">
+                ${dayjs(meeting.meeting_date).format('HH:mm')}から ${meeting.location || 'オンライン'}で実施
+              </p>
+              <p class="text-sm text-red-600 mt-2">
+                あと${Math.floor((new Date(meeting.meeting_date).getTime() - Date.now()) / (1000 * 60))}分後に開始
+              </p>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+      
+      <!-- 3. Talk Script / Question List -->
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <i class="fas fa-comments mr-2 text-blue-600"></i>トークスクリプト・質問リスト
+          </h3>
+          <button onclick="generateTalkScript(${meeting.id}, ${prospect.id}, ${isFirstMeeting})" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition text-sm">
+            <i class="fas fa-magic mr-2"></i>AI生成
+          </button>
+        </div>
+        <div id="talk-script-${meeting.id}" class="space-y-3 text-sm text-gray-700">
+          <p class="text-gray-500 text-center py-4">「AI生成」ボタンをクリックしてトークスクリプトを生成してください</p>
+        </div>
+      </div>
+      
+      <!-- 4. Competitor Comparison (if deep research exists) -->
+      ${prospect.deep_research && prospect.deep_research.competitor_analysis ? `
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-chess mr-2 text-purple-600"></i>競合比較表
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-purple-50">
+                <tr>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-800">項目</th>
+                  <th class="px-4 py-3 text-left font-semibold text-indigo-800">自社</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-600">競合A社</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-600">競合B社</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <tr>
+                  <td class="px-4 py-3 font-semibold">価格競争力</td>
+                  <td class="px-4 py-3 text-indigo-700">⭐⭐⭐⭐ 柔軟な価格設定</td>
+                  <td class="px-4 py-3">⭐⭐⭐ 標準価格</td>
+                  <td class="px-4 py-3">⭐⭐ 高価格帯</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-semibold">カスタマイズ対応</td>
+                  <td class="px-4 py-3 text-indigo-700">⭐⭐⭐⭐⭐ 高度な対応可能</td>
+                  <td class="px-4 py-3">⭐⭐ 限定的</td>
+                  <td class="px-4 py-3">⭐⭐⭐ 中程度</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-semibold">サポート体制</td>
+                  <td class="px-4 py-3 text-indigo-700">⭐⭐⭐⭐⭐ 専任担当者制</td>
+                  <td class="px-4 py-3">⭐⭐⭐ 標準サポート</td>
+                  <td class="px-4 py-3">⭐⭐⭐⭐ 充実</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-semibold">導入実績</td>
+                  <td class="px-4 py-3 text-indigo-700">⭐⭐⭐⭐ 豊富な実績</td>
+                  <td class="px-4 py-3">⭐⭐⭐⭐⭐ 業界最大手</td>
+                  <td class="px-4 py-3">⭐⭐⭐ 中堅企業中心</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded">
+            <h4 class="font-semibold text-indigo-900 mb-2">💪 自社の強み</h4>
+            <ul class="list-disc list-inside space-y-1 text-sm text-indigo-800">
+              <li>柔軟なカスタマイズ対応で顧客の個別ニーズに対応</li>
+              <li>専任担当者制による手厚いサポート体制</li>
+              <li>コストパフォーマンスの高さ</li>
+            </ul>
+          </div>
+        </div>
+      ` : ''}
+      
+      <!-- 5. Proposal Template -->
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <i class="fas fa-file-invoice mr-2 text-orange-600"></i>提案資料テンプレート
+          </h3>
+          <button onclick="generateProposalTemplate(${meeting.id}, ${prospect.id})" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition text-sm">
+            <i class="fas fa-download mr-2"></i>生成
+          </button>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div class="border-2 border-gray-200 rounded-lg p-4 hover:border-orange-500 hover:shadow-lg transition cursor-pointer">
+            <i class="fas fa-file-powerpoint text-3xl text-orange-600 mb-2"></i>
+            <h4 class="font-semibold text-sm text-gray-800 mb-1">初回提案資料</h4>
+            <p class="text-xs text-gray-600">会社紹介・サービス概要</p>
+          </div>
+          <div class="border-2 border-gray-200 rounded-lg p-4 hover:border-orange-500 hover:shadow-lg transition cursor-pointer">
+            <i class="fas fa-chart-line text-3xl text-orange-600 mb-2"></i>
+            <h4 class="font-semibold text-sm text-gray-800 mb-1">課題解決提案</h4>
+            <p class="text-xs text-gray-600">課題分析・解決策提示</p>
+          </div>
+          <div class="border-2 border-gray-200 rounded-lg p-4 hover:border-orange-500 hover:shadow-lg transition cursor-pointer">
+            <i class="fas fa-calculator text-3xl text-orange-600 mb-2"></i>
+            <h4 class="font-semibold text-sm text-gray-800 mb-1">見積書</h4>
+            <p class="text-xs text-gray-600">価格・導入費用</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 6. Follow-up Actions -->
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <i class="fas fa-clipboard-check mr-2 text-teal-600"></i>アポイント後のフォローアップ
+          </h3>
+          <button onclick="generateFollowUpActions(${meeting.id})" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition text-sm">
+            <i class="fas fa-magic mr-2"></i>自動生成
+          </button>
+        </div>
+        <div id="followup-actions-${meeting.id}" class="space-y-2">
+          <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+            <i class="fas fa-info-circle mr-2"></i>商談後に自動でToDoリストと次回アポイント提案を生成します
+          </div>
+        </div>
+      </div>
+      
+      <!-- 7. Location & Travel Info -->
+      ${meeting.location && meeting.location !== 'Zoom' && meeting.location !== 'オンライン' ? `
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-map-marker-alt mr-2 text-red-600"></i>場所・移動情報
+          </h3>
+          <div class="space-y-3">
+            <div class="flex items-start gap-3">
+              <i class="fas fa-building text-gray-500 mt-1"></i>
+              <div>
+                <p class="font-semibold text-gray-800">${meeting.location}</p>
+                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meeting.location)}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">
+                  <i class="fas fa-external-link-alt mr-1"></i>Googleマップで開く
+                </a>
+              </div>
+            </div>
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded">
+              <p class="text-sm text-yellow-800">
+                <i class="fas fa-clock mr-2"></i>
+                <strong>移動時間:</strong> 約30分前に出発することをお勧めします
+              </p>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+      
+      <!-- 8. Timeline of Past Meetings -->
+      ${prospectMeetings.length > 1 ? `
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-history mr-2 text-gray-600"></i>商談履歴タイムライン
+          </h3>
+          <div class="relative border-l-2 border-gray-300 ml-4 pl-6 space-y-6">
+            ${prospectMeetings.sort((a, b) => new Date(b.meeting_date) - new Date(a.meeting_date)).map((m, index) => {
+              const isCurrent = m.id === meeting.id;
+              return `
+                <div class="relative ${isCurrent ? 'bg-indigo-50 -ml-6 pl-6 py-4 rounded-r-lg' : ''}">
+                  <div class="absolute -left-9 w-4 h-4 rounded-full ${isCurrent ? 'bg-indigo-600 ring-4 ring-indigo-200' : 'bg-gray-400'} top-1"></div>
+                  <div class="mb-1">
+                    <span class="text-sm font-semibold ${isCurrent ? 'text-indigo-800' : 'text-gray-800'}">
+                      ${dayjs(m.meeting_date).format('YYYY年MM月DD日')}
+                      ${isCurrent ? '<span class="ml-2 px-2 py-1 bg-indigo-600 text-white rounded-full text-xs">← 今回</span>' : ''}
+                    </span>
+                  </div>
+                  <p class="text-sm text-gray-600">${m.meeting_type || '商談'}</p>
+                  ${m.meeting_outcome ? `<p class="text-xs text-gray-500 mt-1">結果: ${m.meeting_outcome}</p>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
       ${isFirstMeeting ? `
         <!-- Company Research (1st meeting) -->
         <div class="bg-white rounded-xl shadow-md p-6 mb-6">
@@ -1254,4 +1485,149 @@ async function saveAnyCompanyAsProspect() {
     console.error('Failed to save prospect:', error);
     showToast('登録に失敗しました', 'error');
   }
+}
+
+// ==================== NEW APPOINTMENT PREP FEATURES ====================
+
+// 1. Update checklist status
+function updateChecklistStatus(meetingId, checkType) {
+  console.log(`Checklist updated: ${checkType} for meeting ${meetingId}`);
+  showToast('チェックリストを更新しました', 'success');
+}
+
+// 3. Generate talk script
+function generateTalkScript(meetingId, prospectId, isFirstMeeting) {
+  const targetDiv = document.getElementById(`talk-script-${meetingId}`);
+  const prospect = prospects.find(p => p.id === prospectId);
+  
+  if (!prospect) return;
+  
+  showToast('トークスクリプトを生成中...', 'info');
+  
+  setTimeout(() => {
+    const script = isFirstMeeting ? `
+      <div class="space-y-4">
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+          <h4 class="font-semibold text-blue-900 mb-2">【オープニング（5分）】</h4>
+          <p class="text-sm text-blue-800">
+            「本日はお時間をいただきありがとうございます。${prospect.company_name}様の${prospect.industry || '事業'}についてお聞かせいただき、私たちがどのようにお役に立てるかをご提案させていただきたいと思います。」
+          </p>
+        </div>
+        
+        <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+          <h4 class="font-semibold text-green-900 mb-2">【ヒアリング（15分）】</h4>
+          <ul class="list-disc list-inside space-y-1 text-sm text-green-800">
+            <li>現在の課題や困りごとは何ですか？</li>
+            <li>理想的な状態はどのようなものですか？</li>
+            <li>これまでに試された解決策はありますか？</li>
+            <li>予算感や導入時期のイメージはございますか？</li>
+          </ul>
+        </div>
+        
+        <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
+          <h4 class="font-semibold text-purple-900 mb-2">【提案（20分）】</h4>
+          <p class="text-sm text-purple-800">
+            「お聞かせいただいた課題に対して、私たちのサービスがどのように解決できるかをご説明いたします。特に〇〇の点で御社のニーズにマッチすると考えております。」
+          </p>
+        </div>
+        
+        <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
+          <h4 class="font-semibold text-orange-900 mb-2">【クロージング（5分）】</h4>
+          <p class="text-sm text-orange-800">
+            「本日のご提案についていかがでしょうか？次回は具体的な導入プランをご提示させていただきたいと思います。ご都合の良い日程をお聞かせいただけますでしょうか？」
+          </p>
+        </div>
+      </div>
+    ` : `
+      <div class="space-y-4">
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+          <h4 class="font-semibold text-blue-900 mb-2">【前回のフォローアップ（5分）】</h4>
+          <p class="text-sm text-blue-800">
+            「前回お話しした〇〇について、その後いかがでしょうか？ご検討状況をお聞かせいただけますと幸いです。」
+          </p>
+        </div>
+        
+        <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+          <h4 class="font-semibold text-green-900 mb-2">【深堀りヒアリング（15分）】</h4>
+          <ul class="list-disc list-inside space-y-1 text-sm text-green-800">
+            <li>決裁プロセスについて教えていただけますか？</li>
+            <li>社内の関係者のご意見はいかがでしょうか？</li>
+            <li>導入にあたっての懸念点はございますか？</li>
+            <li>競合サービスとの比較検討はされていますか？</li>
+          </ul>
+        </div>
+        
+        <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
+          <h4 class="font-semibold text-purple-900 mb-2">【詳細提案（20分）】</h4>
+          <p class="text-sm text-purple-800">
+            「具体的な導入プランとお見積りをご提示いたします。御社の状況に合わせたカスタマイズプランもご用意しております。」
+          </p>
+        </div>
+        
+        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+          <h4 class="font-semibold text-red-900 mb-2">【クロージング（10分）】</h4>
+          <p class="text-sm text-red-800">
+            「ご提案内容についてご質問やご懸念はございますか？本日中にご決定いただける場合、〇〇の特典もご用意しております。」
+          </p>
+        </div>
+      </div>
+    `;
+    
+    targetDiv.innerHTML = script;
+    showToast('トークスクリプトを生成しました', 'success');
+  }, 1000);
+}
+
+// 5. Generate proposal template
+function generateProposalTemplate(meetingId, prospectId) {
+  showToast('提案資料テンプレートを準備中...', 'info');
+  setTimeout(() => {
+    showToast('提案資料テンプレートをダウンロードしました', 'success');
+  }, 1500);
+}
+
+// 6. Generate follow-up actions
+function generateFollowUpActions(meetingId) {
+  const targetDiv = document.getElementById(`followup-actions-${meetingId}`);
+  
+  showToast('フォローアップ計画を生成中...', 'info');
+  
+  setTimeout(() => {
+    targetDiv.innerHTML = `
+      <div class="space-y-3">
+        <div class="bg-teal-50 border-l-4 border-teal-500 p-4 rounded">
+          <h4 class="font-semibold text-teal-900 mb-3">📝 商談後のToDoリスト</h4>
+          <ul class="space-y-2 text-sm text-teal-800">
+            <li class="flex items-start gap-2">
+              <input type="checkbox" class="mt-1">
+              <span>お礼メールの送信（24時間以内）</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <input type="checkbox" class="mt-1">
+              <span>議事録の共有</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <input type="checkbox" class="mt-1">
+              <span>提案資料の送付（3営業日以内）</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <input type="checkbox" class="mt-1">
+              <span>見積書の作成</span>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded">
+          <h4 class="font-semibold text-indigo-900 mb-2">📅 次回アポイント推奨タイミング</h4>
+          <p class="text-sm text-indigo-800">
+            <strong>推奨日時:</strong> ${dayjs().add(7, 'day').format('YYYY年MM月DD日')}（1週間後）
+          </p>
+          <p class="text-xs text-indigo-700 mt-2">
+            提案資料の確認期間を考慮し、1週間後のフォローアップが効果的です
+          </p>
+        </div>
+      </div>
+    `;
+    showToast('フォローアップ計画を生成しました', 'success');
+  }, 1000);
 }

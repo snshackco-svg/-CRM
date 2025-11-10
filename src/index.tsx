@@ -14,6 +14,7 @@ import salesDashboardRoutes from './routes/sales-dashboard';
 import salesWeeklyReportsRoutes from './routes/sales-weekly-reports';
 import salesCrmDashboardRoutes from './routes/sales-crm-dashboard';
 import salesCrmTasksRoutes from './routes/sales-crm-tasks';
+import nottaRoutes from './routes/notta';
 // Nurturing CRM routes (3-layer data model)
 import masterContactsRoutes from './routes/master-contacts';
 import dealsRoutes from './routes/deals';
@@ -38,7 +39,8 @@ app.route('/api/sales-dashboard', salesDashboardRoutes);
 app.route('/api/sales-weekly-reports', salesWeeklyReportsRoutes);
 app.route('/api/sales-crm/dashboard', salesCrmDashboardRoutes);
 app.route('/api/sales-crm/tasks', salesCrmTasksRoutes);
-// Nurturing CRM API routes (3-layer data model)
+app.route('/api/notta-analyses', nottaRoutes);
+// Nurturing CRM routes (3-layer data model)
 app.route('/api/master-contacts', masterContactsRoutes);
 app.route('/api/deals', dealsRoutes);
 app.route('/api/interactions', interactionsRoutes);

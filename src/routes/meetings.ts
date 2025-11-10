@@ -141,9 +141,26 @@ app.post('/', async (c) => {
       userId
     ).run();
 
+    const meetingId = result.meta.last_row_id;
+
+    // If Notta URL is provided, automatically generate AI summary
+    if (data.notta_url) {
+      try {
+        // Generate mock AI summary (in production, this would call actual AI API)
+        const mockSummary = await generateMockAISummary(data, DB);
+        
+        await DB.prepare(`
+          UPDATE meetings SET ai_summary = ? WHERE id = ?
+        `).bind(JSON.stringify(mockSummary), meetingId).run();
+      } catch (error) {
+        console.error('Failed to generate AI summary:', error);
+        // Continue even if summary generation fails
+      }
+    }
+
     return c.json({
       success: true,
-      meeting_id: result.meta.last_row_id,
+      meeting_id: meetingId,
       message: 'Meeting created successfully'
     });
   } catch (error: any) {
@@ -539,6 +556,51 @@ function extractTimelineInfo(minutes: string): string {
     return 'スケジュールについての議論あり';
   }
   return 'スケジュールについての議論なし';
+}
+
+// Helper function to generate mock AI summary from Notta URL
+async function generateMockAISummary(meetingData: any, DB: D1Database): Promise<any> {
+  // Get prospect information
+  let prospect: any = null;
+  try {
+    prospect = await DB.prepare(`
+      SELECT * FROM prospects WHERE id = ?
+    `).bind(meetingData.prospect_id).first();
+  } catch (e) {
+    console.error('Failed to fetch prospect:', e);
+  }
+
+  // Generate mock AI summary based on meeting data
+  const summary = {
+    summary: `${prospect?.company_name || '企業'}様との${meetingData.meeting_type || '商談'}を実施しました。${meetingData.agenda || '議題について'}を中心に議論し、有意義な時間となりました。`,
+    key_points: [
+      meetingData.agenda ? `議題: ${meetingData.agenda}` : '商談の議題について確認',
+      `参加者: ${meetingData.attendees || '担当者'}`,
+      meetingData.location ? `場所: ${meetingData.location}` : 'オンラインまたは対面での実施',
+      '今後のステップについて合意'
+    ],
+    action_items: meetingData.next_actions ? 
+      meetingData.next_actions.split('\n').filter((item: string) => item.trim()).map((item: string) => ({
+        task: item.trim(),
+        status: 'pending'
+      })) : 
+      [
+        { task: '提案資料の作成', status: 'pending' },
+        { task: '次回商談の日程調整', status: 'pending' }
+      ],
+    next_meeting_points: [
+      '前回の議論内容のフォローアップ',
+      '具体的な提案内容の提示',
+      '予算とスケジュールの確認',
+      '次のステップの合意形成'
+    ],
+    sentiment: 'positive',
+    decision_makers: prospect?.contact_name ? [prospect.contact_name] : ['未確認'],
+    budget_discussed: meetingData.minutes?.includes('予算') || meetingData.minutes?.includes('金額'),
+    timeline_discussed: meetingData.minutes?.includes('スケジュール') || meetingData.minutes?.includes('導入時期')
+  };
+
+  return summary;
 }
 
 export default app;
