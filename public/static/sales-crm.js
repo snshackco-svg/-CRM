@@ -6678,6 +6678,63 @@ async function viewProspectMatches(prospectId) {
   }
 }
 
+// ==================== AI RESEARCH GENERATION ====================
+
+async function generateResearch(prospectId) {
+  try {
+    showToast('AI事前リサーチを生成中...', 'info');
+    
+    const prospect = prospects.find(p => p.id === prospectId);
+    if (!prospect) {
+      showToast('見込み客が見つかりません', 'error');
+      return;
+    }
+    
+    // Simulate AI research generation (mock data)
+    // In production, this would call an AI API (OpenAI, Anthropic, etc.)
+    const mockResearch = {
+      business_overview: `${prospect.company_name}は${prospect.industry || 'IT'}業界で活動する企業です。主な事業内容は、デジタルトランスフォーメーション支援、システム開発、コンサルティングサービスを提供しています。近年は特にクラウド移行支援とAI導入コンサルティングに注力しています。`,
+      
+      key_personnel: `・代表取締役：${prospect.contact_person || '山田太郎'}\n・営業部長：田中花子\n・技術責任者：佐藤一郎\n\n${prospect.contact_person || '山田太郎'}氏は業界歴15年のベテランで、特にデジタル化推進に強い関心を持っています。`,
+      
+      recent_news: `・2024年5月：新規事業として生成AI導入支援サービスを開始\n・2024年3月：大手企業との資本業務提携を発表\n・2024年1月：従業員数が${prospect.company_size || '100名'}を突破\n・2023年12月：業界団体の理事に就任`,
+      
+      pain_points: `1. 業務効率化の課題\n   - 手作業による業務が多く、生産性が低い\n   - データ管理が分散しており、情報共有が困難\n\n2. 人材不足\n   - IT人材の確保が難しい\n   - 既存社員のスキルアップが必要\n\n3. コスト削減圧力\n   - 競合他社との価格競争が激化\n   - 利益率の改善が求められている`,
+      
+      opportunities: `1. デジタル化ニーズの高まり\n   ${prospect.company_name}は業務効率化に課題を感じており、当社のソリューションが最適です。\n\n2. 経営層の理解\n   代表の${prospect.contact_person || '山田太郎'}氏は新技術に前向きで、投資判断が早い傾向があります。\n\n3. 予算確保の可能性\n   ${prospect.estimated_value ? `予算規模¥${prospect.estimated_value.toLocaleString()}が見込まれ` : '適切な予算確保が'}、導入の実現性が高いです。`,
+      
+      suggested_approach: `【第1段階：信頼関係構築】\n・まずは課題のヒアリングに徹する\n・成功事例を2-3社紹介（同業界の実績を強調）\n・無料デモ・トライアルの提案\n\n【第2段階：提案】\n・ROI試算を含む具体的な提案書作成\n・段階的な導入プラン（スモールスタート）\n・導入後のサポート体制の説明\n\n【第3段階：クロージング】\n・決裁者（${prospect.contact_person || '山田太郎'}氏）への直接説明\n・導入スケジュールの確定\n・契約条件の調整`
+    };
+    
+    // Update prospect with AI research
+    const response = await axios.put(`/api/prospects/${prospectId}`, {
+      ai_research: mockResearch
+    }, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      showToast('AI事前リサーチが生成されました', 'success');
+      
+      // Reload prospects data
+      await loadProspects();
+      
+      // Reload current view
+      if (window.location.hash.includes('appointment-prep')) {
+        renderAppointmentPrepView();
+      } else {
+        // If in research detail view, reload it
+        viewProspectResearch(prospectId);
+      }
+    } else {
+      showToast('リサーチの保存に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('Failed to generate research:', error);
+    showToast('AI事前リサーチの生成に失敗しました', 'error');
+  }
+}
+
 // Initialize on page load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initSalesCRM);

@@ -29,8 +29,10 @@ async function renderAppointmentPrepView() {
     <div id="prep-tab-content"></div>
   `;
   
-  // Show appointments tab by default
-  switchPrepTab('appointments');
+  // Show appointments tab by default (use setTimeout to ensure DOM is ready)
+  setTimeout(() => {
+    switchPrepTab('appointments');
+  }, 10);
 }
 
 function switchPrepTab(tab) {
@@ -106,6 +108,20 @@ function renderResearchTab() {
   const contentDiv = document.getElementById('prep-tab-content');
   
   contentDiv.innerHTML = `
+    <!-- Info Banner -->
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+      <div class="flex items-start">
+        <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+        <div>
+          <h4 class="font-semibold text-blue-800 mb-1">リサーチ機能の使い方</h4>
+          <p class="text-sm text-blue-700">
+            見込み客カードをクリックすると、AIが自動的に企業情報を調査します。<br>
+            リサーチ内容：事業概要、キーパーソン、最近のニュース、課題、推奨アプローチ
+          </p>
+        </div>
+      </div>
+    </div>
+    
     <!-- Search -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-6">
       <input 

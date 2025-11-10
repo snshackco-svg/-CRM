@@ -210,6 +210,7 @@ app.put('/:id', async (c) => {
         estimated_value = COALESCE(?, estimated_value),
         expected_close_date = COALESCE(?, expected_close_date),
         notes = COALESCE(?, notes),
+        ai_research = COALESCE(?, ai_research),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND sales_id = ?
     `).bind(
@@ -226,6 +227,7 @@ app.put('/:id', async (c) => {
       data.estimated_value,
       data.expected_close_date,
       data.notes,
+      data.ai_research ? JSON.stringify(data.ai_research) : null,
       prospectId,
       userId
     ).run();
