@@ -1,9 +1,10 @@
+// PM2 configuration for local development
 module.exports = {
   apps: [
     {
-      name: 'webapp',
+      name: 'sales-crm',
       script: 'npx',
-      args: 'wrangler pages dev dist --ip 0.0.0.0 --port 3000',
+      args: 'wrangler pages dev dist --d1=sales-crm-db --local --ip 0.0.0.0 --port 3000',
       env: {
         NODE_ENV: 'development',
         PORT: 3000
