@@ -121,9 +121,9 @@ app.post('/', async (c) => {
     const result = await DB.prepare(`
       INSERT INTO meetings (
         prospect_id, meeting_date, meeting_type, attendees, location,
-        duration_minutes, agenda, minutes, good_points, improvement_points,
+        duration_minutes, agenda, notta_url, minutes, good_points, improvement_points,
         next_actions, meeting_outcome, sales_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       data.prospect_id,
       data.meeting_date,
@@ -132,6 +132,7 @@ app.post('/', async (c) => {
       data.location || null,
       data.duration_minutes || null,
       data.agenda || null,
+      data.notta_url || null,
       data.minutes || null,
       data.good_points || null,
       data.improvement_points || null,
@@ -165,6 +166,7 @@ app.put('/:id', async (c) => {
         location = COALESCE(?, location),
         duration_minutes = COALESCE(?, duration_minutes),
         agenda = COALESCE(?, agenda),
+        notta_url = COALESCE(?, notta_url),
         minutes = COALESCE(?, minutes),
         good_points = COALESCE(?, good_points),
         improvement_points = COALESCE(?, improvement_points),
@@ -179,6 +181,7 @@ app.put('/:id', async (c) => {
       data.location,
       data.duration_minutes,
       data.agenda,
+      data.notta_url,
       data.minutes,
       data.good_points,
       data.improvement_points,
@@ -414,5 +417,128 @@ app.delete('/todos/:todoId', async (c) => {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
+
+// AI: Generate meeting summary for appointment preparation
+app.post('/:id/generate-summary', async (c) => {
+  try {
+    const meetingId = c.req.param('id');
+    const { DB } = c.env;
+
+    // Get meeting details
+    const meeting = await DB.prepare(`
+      SELECT m.*, p.company_name, p.contact_person
+      FROM meetings m
+      JOIN prospects p ON m.prospect_id = p.id
+      WHERE m.id = ?
+    `).bind(meetingId).first();
+
+    if (!meeting) {
+      return c.json({ success: false, error: 'Meeting not found' }, 404);
+    }
+
+    // Extract key information from meeting minutes
+    const minutes = meeting.minutes || '';
+    
+    // AI-powered summary generation (simulated for now)
+    // In production, this would call OpenAI/Anthropic API
+    const summary = {
+      key_topics: extractKeyTopics(minutes),
+      action_items: extractActionItems(meeting.next_actions || ''),
+      next_meeting_points: generateNextMeetingPoints(minutes, meeting.next_actions || ''),
+      client_concerns: extractConcerns(minutes),
+      decision_makers: extractDecisionMakers(meeting.attendees),
+      budget_discussion: extractBudgetInfo(minutes),
+      timeline_discussion: extractTimelineInfo(minutes),
+      generated_at: new Date().toISOString()
+    };
+
+    // Save AI summary to database
+    await DB.prepare(`
+      UPDATE meetings SET ai_summary = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).bind(JSON.stringify(summary), meetingId).run();
+
+    return c.json({
+      success: true,
+      summary,
+      message: 'Meeting summary generated successfully'
+    });
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// Helper functions for AI summary generation (simplified version)
+function extractKeyTopics(minutes: string): string[] {
+  // Simple keyword extraction (in production, use NLP/LLM)
+  const topics: string[] = [];
+  if (minutes.includes('予算')) topics.push('予算についての議論');
+  if (minutes.includes('導入')) topics.push('導入スケジュールの確認');
+  if (minutes.includes('課題')) topics.push('現状の課題ヒアリング');
+  if (minutes.includes('機能')) topics.push('必要機能の整理');
+  return topics.length > 0 ? topics : ['商談内容の確認'];
+}
+
+function extractActionItems(nextActions: string): Array<{task: string, status: string, assignee: string}> {
+  // Parse next actions into structured items
+  const items: Array<{task: string, status: string, assignee: string}> = [];
+  if (!nextActions) return items;
+  
+  const lines = nextActions.split('\n').filter(l => l.trim());
+  lines.forEach(line => {
+    items.push({
+      task: line.trim(),
+      status: 'pending',
+      assignee: '担当者未定'
+    });
+  });
+  return items;
+}
+
+function generateNextMeetingPoints(minutes: string, nextActions: string): string[] {
+  // Generate points to discuss in next meeting
+  const points: string[] = [];
+  if (nextActions.includes('見積')) points.push('見積書の提示と説明');
+  if (nextActions.includes('導入事例')) points.push('導入事例の詳細説明');
+  if (minutes.includes('決裁')) points.push('決裁者との面談設定');
+  return points.length > 0 ? points : ['前回の進捗確認', '次のステップの提案'];
+}
+
+function extractConcerns(minutes: string): string[] {
+  // Extract client concerns
+  const concerns: string[] = [];
+  if (minutes.includes('コスト') || minutes.includes('費用')) concerns.push('コスト面での懸念');
+  if (minutes.includes('時間') || minutes.includes('工数')) concerns.push('導入にかかる時間・工数');
+  if (minutes.includes('サポート')) concerns.push('導入後のサポート体制');
+  return concerns;
+}
+
+function extractDecisionMakers(attendees: string): string[] {
+  // Extract potential decision makers from attendees
+  const decisionMakers: string[] = [];
+  const attendeeList = attendees.split(/[、,]/).map(a => a.trim());
+  attendeeList.forEach(name => {
+    if (name.includes('部長') || name.includes('役員') || name.includes('社長')) {
+      decisionMakers.push(name);
+    }
+  });
+  return decisionMakers;
+}
+
+function extractBudgetInfo(minutes: string): string {
+  // Extract budget discussion points
+  if (minutes.includes('予算')) {
+    const match = minutes.match(/予算[：:は]?.*?([0-9０-９]+万円|[0-9０-９]+円)/);
+    return match ? match[0] : '予算についての議論あり';
+  }
+  return '予算についての議論なし';
+}
+
+function extractTimelineInfo(minutes: string): string {
+  // Extract timeline discussion points
+  if (minutes.includes('スケジュール') || minutes.includes('導入時期')) {
+    return 'スケジュールについての議論あり';
+  }
+  return 'スケジュールについての議論なし';
+}
 
 export default app;
