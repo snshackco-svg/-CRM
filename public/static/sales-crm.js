@@ -6680,9 +6680,9 @@ async function viewProspectMatches(prospectId) {
 
 // ==================== AI RESEARCH GENERATION ====================
 
-async function generateResearch(prospectId) {
+async function generateResearch(prospectId, isDeep = false) {
   try {
-    showToast('AI事前リサーチを生成中...', 'info');
+    showToast(isDeep ? 'AIディープリサーチを生成中...' : 'AI事前リサーチを生成中...', 'info');
     
     const prospect = prospects.find(p => p.id === prospectId);
     if (!prospect) {
@@ -6706,32 +6706,45 @@ async function generateResearch(prospectId) {
       suggested_approach: `【第1段階：信頼関係構築】\n・まずは課題のヒアリングに徹する\n・成功事例を2-3社紹介（同業界の実績を強調）\n・無料デモ・トライアルの提案\n\n【第2段階：提案】\n・ROI試算を含む具体的な提案書作成\n・段階的な導入プラン（スモールスタート）\n・導入後のサポート体制の説明\n\n【第3段階：クロージング】\n・決裁者（${prospect.contact_person || '山田太郎'}氏）への直接説明\n・導入スケジュールの確定\n・契約条件の調整`
     };
     
+    // Deep research additional data
+    const mockDeepResearch = isDeep ? {
+      ...mockResearch,
+      financial_analysis: `【財務状況】\n・売上高：推定${prospect.estimated_value ? Math.floor(prospect.estimated_value * 10) : '5000'}万円（前年比+15%）\n・営業利益率：約12%（業界平均10%を上回る）\n・自己資本比率：45%（安定的な財務基盤）\n・投資余力：あり（デジタル投資予算を確保済み）\n\n【成長トレンド】\n・過去3年間で売上1.5倍に成長\n・新規事業への投資を積極化\n・人材採用を強化中`,
+      
+      competitor_analysis: `【主要競合】\n1. A社：業界最大手、価格競争力が強み\n2. B社：技術力に定評、高価格帯\n3. C社：新興企業、柔軟な対応が特徴\n\n【当社の優位性】\n・導入実績：${prospect.industry || 'IT'}業界で30社以上\n・サポート体制：24時間対応可能\n・柔軟なカスタマイズ：個別ニーズに対応\n・コストパフォーマンス：競合比20%削減可能`,
+      
+      market_trends: `【業界動向】\n・${prospect.industry || 'IT'}業界全体でDX投資が拡大中\n・2024年市場規模は前年比25%増と予測\n・特にAI・クラウド領域の需要が急増\n・政府のデジタル化支援策も追い風\n\n【${prospect.company_name}への影響】\n・競合他社がデジタル化を進める中、遅れをとるリスク\n・早期導入による先行者利益の可能性\n・補助金・税制優遇の活用機会`,
+      
+      swot_analysis: `【Strength（強み）】\n・代表者のリーダーシップと決断力\n・安定した財務基盤\n・${prospect.industry || 'IT'}業界での実績と信頼\n\n【Weakness（弱み）】\n・IT人材の不足\n・業務プロセスの属人化\n・デジタル化の遅れ\n\n【Opportunity（機会）】\n・市場の成長トレンド\n・政府支援策の活用\n・新規事業展開の余地\n\n【Threat（脅威）】\n・競合のデジタル化進展\n・人材獲得競争の激化\n・技術変化への対応遅れ`,
+      
+      strategic_proposal: `【戦略的アプローチ】\n\n■ Phase 1：信頼構築（1-2ヶ月）\n・経営層へのプレゼン（ROI重視）\n・現場ヒアリング（3-5名）\n・業界トップ企業の成功事例共有\n\n■ Phase 2：PoC実施（2-3ヶ月）\n・小規模部門でのトライアル\n・効果測定（工数削減率、エラー削減率）\n・社内推進チーム組成支援\n\n■ Phase 3：本格展開（3-6ヶ月）\n・全社展開計画の策定\n・段階的ロールアウト\n・トレーニングプログラム実施\n\n【予想予算】\n・初期費用：${prospect.estimated_value ? prospect.estimated_value.toLocaleString() : '300万'}円\n・月額費用：${prospect.estimated_value ? Math.floor(prospect.estimated_value / 10).toLocaleString() : '30万'}円\n・ROI達成期間：12-18ヶ月\n\n【リスク対策】\n・段階的導入による失敗リスク低減\n・専任サポート担当の配置\n・定期的な効果測定とPDCA`
+    } : mockResearch;
+    
     // Update prospect with AI research
-    const response = await axios.put(`/api/prospects/${prospectId}`, {
-      ai_research: mockResearch
-    }, {
+    const updateData = isDeep ? { deep_research: mockDeepResearch } : { ai_research: mockResearch };
+    const response = await axios.put(`/api/prospects/${prospectId}`, updateData, {
       headers: { 'X-Session-Token': sessionToken }
     });
     
     if (response.data.success) {
-      showToast('AI事前リサーチが生成されました', 'success');
+      showToast(isDeep ? 'AIディープリサーチが生成されました' : 'AI事前リサーチが生成されました', 'success');
       
       // Reload prospects data
       await loadProspects();
       
       // Reload current view
       if (window.location.hash.includes('appointment-prep')) {
-        renderAppointmentPrepView();
+        switchPrepTab('research');
       } else {
         // If in research detail view, reload it
-        viewProspectResearch(prospectId);
+        viewProspectResearch(prospectId, isDeep);
       }
     } else {
       showToast('リサーチの保存に失敗しました', 'error');
     }
   } catch (error) {
     console.error('Failed to generate research:', error);
-    showToast('AI事前リサーチの生成に失敗しました', 'error');
+    showToast(isDeep ? 'AIディープリサーチの生成に失敗しました' : 'AI事前リサーチの生成に失敗しました', 'error');
   }
 }
 

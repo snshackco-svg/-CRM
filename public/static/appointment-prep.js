@@ -109,14 +109,15 @@ function renderResearchTab() {
   
   contentDiv.innerHTML = `
     <!-- Info Banner -->
-    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+    <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border-l-4 border-purple-500 p-4 mb-6 rounded">
       <div class="flex items-start">
-        <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+        <i class="fas fa-microscope text-purple-600 text-2xl mt-1 mr-3"></i>
         <div>
-          <h4 class="font-semibold text-blue-800 mb-1">リサーチ機能の使い方</h4>
-          <p class="text-sm text-blue-700">
-            見込み客カードをクリックすると、AIが自動的に企業情報を調査します。<br>
-            リサーチ内容：事業概要、キーパーソン、最近のニュース、課題、推奨アプローチ
+          <h4 class="font-semibold text-purple-900 mb-1">🔍 ディープリサーチ機能</h4>
+          <p class="text-sm text-purple-800">
+            通常のリサーチに加え、財務情報、競合分析、市場動向、SWOT分析など、より深い企業分析を提供します。<br>
+            <span class="font-semibold">通常リサーチ</span>：基本情報・アプローチ案 | 
+            <span class="font-semibold">ディープリサーチ</span>：詳細分析・戦略提案
           </p>
         </div>
       </div>
@@ -155,14 +156,25 @@ function renderResearchGrid(prospectsToShow) {
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       ${prospectsToShow.map(p => {
         const hasResearch = p.ai_research && Object.keys(p.ai_research).length > 0;
+        const hasDeepResearch = p.deep_research && Object.keys(p.deep_research).length > 0;
         return `
-          <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 cursor-pointer" onclick="viewProspectResearch(${p.id})">
+          <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6">
             <div class="flex justify-between items-start mb-3">
               <h3 class="text-lg font-bold text-gray-800">${p.company_name}</h3>
-              ${hasResearch ? 
-                '<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold"><i class="fas fa-check mr-1"></i>完了</span>' :
-                '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">未実行</span>'
-              }
+              <div class="flex flex-col gap-1">
+                ${hasResearch ? 
+                  '<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold"><i class="fas fa-check mr-1"></i>通常</span>' :
+                  ''
+                }
+                ${hasDeepResearch ? 
+                  '<span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-semibold"><i class="fas fa-microscope mr-1"></i>Deep</span>' :
+                  ''
+                }
+                ${!hasResearch && !hasDeepResearch ?
+                  '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">未実行</span>' :
+                  ''
+                }
+              </div>
             </div>
             
             <div class="space-y-2 text-sm text-gray-600 mb-4">
@@ -171,15 +183,27 @@ function renderResearchGrid(prospectsToShow) {
               <div><i class="fas fa-user-tie mr-2"></i>${p.contact_person || '-'}</div>
             </div>
             
-            ${hasResearch ? `
-              <button onclick="event.stopPropagation(); viewProspectResearch(${p.id})" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm">
-                <i class="fas fa-eye mr-2"></i>リサーチを見る
-              </button>
-            ` : `
-              <button onclick="event.stopPropagation(); generateResearch(${p.id})" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm">
-                <i class="fas fa-robot mr-2"></i>リサーチ生成
-              </button>
-            `}
+            <div class="grid grid-cols-2 gap-2">
+              ${hasResearch ? `
+                <button onclick="viewProspectResearch(${p.id}, false)" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg transition text-xs">
+                  <i class="fas fa-eye mr-1"></i>通常
+                </button>
+              ` : `
+                <button onclick="generateResearch(${p.id}, false)" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg transition text-xs">
+                  <i class="fas fa-robot mr-1"></i>通常
+                </button>
+              `}
+              
+              ${hasDeepResearch ? `
+                <button onclick="viewProspectResearch(${p.id}, true)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg transition text-xs">
+                  <i class="fas fa-microscope mr-1"></i>Deep
+                </button>
+              ` : `
+                <button onclick="generateResearch(${p.id}, true)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg transition text-xs">
+                  <i class="fas fa-microscope mr-1"></i>Deep
+                </button>
+              `}
+            </div>
           </div>
         `;
       }).join('')}
@@ -202,7 +226,7 @@ function filterResearch() {
   document.getElementById('research-grid').innerHTML = renderResearchGrid(filteredProspects);
 }
 
-async function viewProspectResearch(prospectId) {
+async function viewProspectResearch(prospectId, isDeep = false) {
   try {
     const response = await axios.get(`/api/prospects/${prospectId}`, {
       headers: { 'X-Session-Token': sessionToken }
@@ -210,7 +234,7 @@ async function viewProspectResearch(prospectId) {
     
     if (response.data.success) {
       const prospect = response.data.prospect;
-      const research = response.data.ai_research;
+      const research = isDeep ? response.data.deep_research : response.data.ai_research;
       
       const contentDiv = document.getElementById('prep-tab-content');
       
@@ -223,11 +247,11 @@ async function viewProspectResearch(prospectId) {
           </div>
           
           <div class="bg-white rounded-xl shadow-md p-8 text-center">
-            <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-bold text-gray-800 mb-2">${prospect.company_name}の事前リサーチがまだ作成されていません</h3>
+            <i class="${isDeep ? 'fas fa-microscope' : 'fas fa-search'} text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">${prospect.company_name}の${isDeep ? 'ディープ' : '事前'}リサーチがまだ作成されていません</h3>
             <p class="text-gray-600 mb-4">AIが自動的に企業情報を調査し、商談に役立つ情報を提供します</p>
-            <button onclick="generateResearch(${prospect.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition">
-              <i class="fas fa-robot mr-2"></i>AI事前リサーチを生成
+            <button onclick="generateResearch(${prospect.id}, ${isDeep})" class="${isDeep ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-purple-600 hover:bg-purple-700'} text-white px-6 py-3 rounded-lg transition">
+              <i class="fas ${isDeep ? 'fa-microscope' : 'fa-robot'} mr-2"></i>${isDeep ? 'ディープ' : 'AI事前'}リサーチを生成
             </button>
           </div>
         `;
@@ -239,8 +263,11 @@ async function viewProspectResearch(prospectId) {
           <button onclick="switchPrepTab('research')" class="text-indigo-600 hover:text-indigo-800">
             <i class="fas fa-arrow-left mr-2"></i>一覧に戻る
           </button>
-          <h2 class="text-2xl font-bold text-gray-800">${prospect.company_name} - 事前リサーチ</h2>
-          <button onclick="generateResearch(${prospect.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition">
+          <h2 class="text-2xl font-bold text-gray-800">
+            ${prospect.company_name} - ${isDeep ? 'ディープ' : '事前'}リサーチ
+            ${isDeep ? '<span class="ml-2 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm"><i class="fas fa-microscope mr-1"></i>Deep</span>' : ''}
+          </h2>
+          <button onclick="generateResearch(${prospect.id}, ${isDeep})" class="${isDeep ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-purple-600 hover:bg-purple-700'} text-white px-4 py-2 rounded-lg transition">
             <i class="fas fa-sync mr-2"></i>再生成
           </button>
         </div>
@@ -293,8 +320,57 @@ async function viewProspectResearch(prospectId) {
             <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
               <i class="fas fa-route mr-2 text-purple-600"></i>推奨アプローチ
             </h3>
-            <p class="text-gray-700 whitespace-pre-wrap">${research.suggested_approach}</p>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.suggested_approach || research.strategic_proposal}</p>
           </div>
+          
+          ${isDeep && research.financial_analysis ? `
+            <!-- Deep Research Only: Financial Analysis -->
+            <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+              <h3 class="text-lg font-bold text-indigo-900 mb-3 flex items-center">
+                <i class="fas fa-chart-line mr-2 text-indigo-600"></i>財務分析
+                <span class="ml-2 px-2 py-1 bg-indigo-600 text-white rounded text-xs">Deep</span>
+              </h3>
+              <p class="text-gray-700 whitespace-pre-wrap">${research.financial_analysis}</p>
+            </div>
+            
+            <!-- Deep Research Only: Competitor Analysis -->
+            <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+              <h3 class="text-lg font-bold text-indigo-900 mb-3 flex items-center">
+                <i class="fas fa-users-cog mr-2 text-indigo-600"></i>競合分析
+                <span class="ml-2 px-2 py-1 bg-indigo-600 text-white rounded text-xs">Deep</span>
+              </h3>
+              <p class="text-gray-700 whitespace-pre-wrap">${research.competitor_analysis}</p>
+            </div>
+            
+            <!-- Deep Research Only: Market Trends -->
+            <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+              <h3 class="text-lg font-bold text-indigo-900 mb-3 flex items-center">
+                <i class="fas fa-chart-area mr-2 text-indigo-600"></i>市場動向
+                <span class="ml-2 px-2 py-1 bg-indigo-600 text-white rounded text-xs">Deep</span>
+              </h3>
+              <p class="text-gray-700 whitespace-pre-wrap">${research.market_trends}</p>
+            </div>
+            
+            <!-- Deep Research Only: SWOT Analysis -->
+            <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+              <h3 class="text-lg font-bold text-indigo-900 mb-3 flex items-center">
+                <i class="fas fa-th mr-2 text-indigo-600"></i>SWOT分析
+                <span class="ml-2 px-2 py-1 bg-indigo-600 text-white rounded text-xs">Deep</span>
+              </h3>
+              <p class="text-gray-700 whitespace-pre-wrap">${research.swot_analysis}</p>
+            </div>
+            
+            ${research.strategic_proposal ? `
+              <!-- Deep Research Only: Strategic Proposal -->
+              <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+                <h3 class="text-lg font-bold text-indigo-900 mb-3 flex items-center">
+                  <i class="fas fa-chess mr-2 text-indigo-600"></i>戦略的提案
+                  <span class="ml-2 px-2 py-1 bg-indigo-600 text-white rounded text-xs">Deep</span>
+                </h3>
+                <p class="text-gray-700 whitespace-pre-wrap">${research.strategic_proposal}</p>
+              </div>
+            ` : ''}
+          ` : ''}
         </div>
       `;
     }
