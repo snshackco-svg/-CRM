@@ -1131,7 +1131,135 @@ async function renderAppointmentsView() {
 }
 
 async function editAppointment(appointmentId) {
-  showToast('アポイント編集機能は実装中です', 'info');
+  try {
+    const response = await axios.get(`/api/meetings/${appointmentId}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (!response.data.success) {
+      showToast('アポイント情報の取得に失敗しました', 'error');
+      return;
+    }
+    
+    const meeting = response.data.meeting;
+    
+    const modal = document.createElement('div');
+    modal.id = 'edit-appointment-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
+          <h2 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-edit mr-2 text-blue-600"></i>アポイントを編集
+          </h2>
+          <button onclick="document.getElementById('edit-appointment-modal').remove()" class="text-gray-400 hover:text-gray-600 transition">
+            <i class="fas fa-times text-2xl"></i>
+          </button>
+        </div>
+        
+        <form onsubmit="submitEditAppointment(event, ${appointmentId})" class="p-6 space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">商談日 <span class="text-red-500">*</span></label>
+              <input type="date" id="edit_meeting_date" value="${meeting.meeting_date || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">商談種別</label>
+              <input type="text" id="edit_meeting_type" value="${meeting.meeting_type || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">参加者</label>
+            <input type="text" id="edit_attendees" value="${meeting.attendees || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">場所</label>
+              <input type="text" id="edit_location" value="${meeting.location || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">時間（分）</label>
+              <input type="number" id="edit_duration_minutes" value="${meeting.duration_minutes || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">議題</label>
+            <textarea id="edit_agenda" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg">${meeting.agenda || ''}</textarea>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">議事録</label>
+            <textarea id="edit_minutes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg">${meeting.minutes || ''}</textarea>
+          </div>
+          
+          <div class="flex justify-end gap-3">
+            <button type="button" onclick="document.getElementById('edit-appointment-modal').remove()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+              キャンセル
+            </button>
+            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <i class="fas fa-save mr-2"></i>保存
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    };
+    
+    document.body.appendChild(modal);
+  } catch (error) {
+    console.error('Failed to load appointment:', error);
+    showToast('アポイント情報の取得に失敗しました', 'error');
+  }
+}
+
+async function submitEditAppointment(event, appointmentId) {
+  event.preventDefault();
+  
+  const formData = {
+    meeting_date: document.getElementById('edit_meeting_date').value,
+    meeting_type: document.getElementById('edit_meeting_type').value || null,
+    attendees: document.getElementById('edit_attendees').value || null,
+    location: document.getElementById('edit_location').value || null,
+    duration_minutes: parseInt(document.getElementById('edit_duration_minutes').value) || null,
+    agenda: document.getElementById('edit_agenda').value || null,
+    minutes: document.getElementById('edit_minutes').value || null
+  };
+  
+  try {
+    const response = await axios.put(`/api/meetings/${appointmentId}`, formData, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      showToast('アポイントを更新しました', 'success');
+      document.getElementById('edit-appointment-modal').remove();
+      renderAppointmentsView();
+    }
+  } catch (error) {
+    console.error('Failed to update appointment:', error);
+    showToast('アポイントの更新に失敗しました', 'error');
+  }
 }
 
 async function deleteAppointment(appointmentId) {
@@ -2237,35 +2365,760 @@ async function submitNewConnection(event) {
 }
 
 function showNewMeetingModal(prospectId) {
-  showToast('新規商談登録モーダル（実装予定）', 'info');
+  const modal = document.createElement('div');
+  modal.id = 'new-meeting-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    padding: 20px;
+  `;
+  
+  modal.innerHTML = `
+    <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
+        <h2 class="text-2xl font-bold text-gray-800">
+          <i class="fas fa-calendar-plus mr-2 text-indigo-600"></i>新規商談登録
+        </h2>
+        <button onclick="document.getElementById('new-meeting-modal').remove()" class="text-gray-400 hover:text-gray-600 transition">
+          <i class="fas fa-times text-2xl"></i>
+        </button>
+      </div>
+      
+      <form onsubmit="submitNewMeeting(event, ${prospectId})" class="p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">商談日 <span class="text-red-500">*</span></label>
+            <input type="date" id="meeting_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">商談種別 <span class="text-red-500">*</span></label>
+            <select id="meeting_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+              <option value="初回商談">初回商談</option>
+              <option value="フォロー商談">フォロー商談</option>
+              <option value="提案商談">提案商談</option>
+              <option value="成約商談">成約商談</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">参加者 <span class="text-red-500">*</span></label>
+          <input type="text" id="attendees" placeholder="例: 山田太郎、田中花子" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">場所</label>
+            <input type="text" id="location" placeholder="例: Zoom、東京オフィス" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">時間（分）</label>
+            <input type="number" id="duration_minutes" placeholder="60" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">議題</label>
+          <textarea id="agenda" rows="2" placeholder="商談の議題を入力" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></textarea>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">議事録</label>
+          <textarea id="minutes" rows="4" placeholder="商談内容を記録" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></textarea>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">次のアクション</label>
+          <textarea id="next_actions" rows="2" placeholder="次にやるべきこと" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></textarea>
+        </div>
+        
+        <div class="flex justify-end gap-3">
+          <button type="button" onclick="document.getElementById('new-meeting-modal').remove()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            キャンセル
+          </button>
+          <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+            <i class="fas fa-save mr-2"></i>登録
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  };
+  
+  // Set today's date as default
+  setTimeout(() => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('meeting_date').value = today;
+  }, 10);
+  
+  document.body.appendChild(modal);
+}
+
+async function submitNewMeeting(event, prospectId) {
+  event.preventDefault();
+  
+  const formData = {
+    prospect_id: prospectId,
+    meeting_date: document.getElementById('meeting_date').value,
+    meeting_type: document.getElementById('meeting_type').value,
+    attendees: document.getElementById('attendees').value,
+    location: document.getElementById('location').value || null,
+    duration_minutes: parseInt(document.getElementById('duration_minutes').value) || null,
+    agenda: document.getElementById('agenda').value || null,
+    minutes: document.getElementById('minutes').value || null,
+    next_actions: document.getElementById('next_actions').value || null
+  };
+  
+  try {
+    const response = await axios.post('/api/meetings', formData, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      showToast('商談を登録しました', 'success');
+      document.getElementById('new-meeting-modal').remove();
+      if (currentProspect && currentProspect.id === prospectId) {
+        await viewProspect(prospectId);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to create meeting:', error);
+    showToast('商談の登録に失敗しました', 'error');
+  }
 }
 
 function showNewTodoModal(prospectId) {
-  showToast('新規ToDo追加モーダル（実装予定）', 'info');
+  const modal = document.createElement('div');
+  modal.id = 'new-todo-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    padding: 20px;
+  `;
+  
+  modal.innerHTML = `
+    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
+        <h2 class="text-2xl font-bold text-gray-800">
+          <i class="fas fa-tasks mr-2 text-purple-600"></i>新規ToDo追加
+        </h2>
+        <button onclick="document.getElementById('new-todo-modal').remove()" class="text-gray-400 hover:text-gray-600 transition">
+          <i class="fas fa-times text-2xl"></i>
+        </button>
+      </div>
+      
+      <form onsubmit="submitNewTodo(event, ${prospectId})" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">ToDoタイトル <span class="text-red-500">*</span></label>
+          <input type="text" id="todo_title" placeholder="例: 提案資料を送付" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">詳細</label>
+          <textarea id="todo_description" rows="3" placeholder="ToDoの詳細を入力" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></textarea>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">期限</label>
+            <input type="date" id="todo_due_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">優先度</label>
+            <select id="todo_priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              <option value="low">低</option>
+              <option value="medium" selected>中</option>
+              <option value="high">高</option>
+              <option value="urgent">緊急</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="flex justify-end gap-3">
+          <button type="button" onclick="document.getElementById('new-todo-modal').remove()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            キャンセル
+          </button>
+          <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+            <i class="fas fa-save mr-2"></i>追加
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  };
+  
+  document.body.appendChild(modal);
 }
 
-function editProspect(prospectId) {
-  showToast('編集機能（実装予定）', 'info');
-}
-
-function deleteProspect(prospectId) {
-  if (confirm('本当に削除しますか?')) {
-    showToast('削除機能（実装予定）', 'info');
+async function submitNewTodo(event, prospectId) {
+  event.preventDefault();
+  
+  const formData = {
+    prospect_id: prospectId,
+    title: document.getElementById('todo_title').value,
+    description: document.getElementById('todo_description').value || null,
+    due_date: document.getElementById('todo_due_date').value || null,
+    priority: document.getElementById('todo_priority').value,
+    status: 'pending'
+  };
+  
+  try {
+    const response = await axios.post('/api/meetings/0/todos', formData, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      showToast('ToDoを追加しました', 'success');
+      document.getElementById('new-todo-modal').remove();
+      if (currentProspect && currentProspect.id === prospectId) {
+        await viewProspect(prospectId);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to create todo:', error);
+    showToast('ToDoの追加に失敗しました', 'error');
   }
 }
 
-function editConnection(connectionId) {
-  showToast('編集機能（実装予定）', 'info');
-}
-
-function deleteConnection(connectionId) {
-  if (confirm('本当に削除しますか?')) {
-    showToast('削除機能（実装予定）', 'info');
+async function editProspect(prospectId) {
+  try {
+    const response = await axios.get(`/api/prospects/${prospectId}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (!response.data.success) {
+      showToast('見込み客情報の取得に失敗しました', 'error');
+      return;
+    }
+    
+    const prospect = response.data.prospect;
+    
+    const modal = document.createElement('div');
+    modal.id = 'edit-prospect-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
+          <h2 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-edit mr-2 text-indigo-600"></i>見込み客を編集
+          </h2>
+          <button onclick="document.getElementById('edit-prospect-modal').remove()" class="text-gray-400 hover:text-gray-600 transition">
+            <i class="fas fa-times text-2xl"></i>
+          </button>
+        </div>
+        
+        <form onsubmit="submitEditProspect(event, ${prospectId})" class="p-6 space-y-6">
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">企業名 <span class="text-red-500">*</span></label>
+              <input type="text" id="edit_company_name" value="${prospect.company_name || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Webサイト</label>
+              <input type="url" id="edit_company_url" value="${prospect.company_url || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">業界</label>
+              <input type="text" id="edit_industry" value="${prospect.industry || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">企業規模</label>
+              <select id="edit_company_size" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="">選択してください</option>
+                <option value="1-10" ${prospect.company_size === '1-10' ? 'selected' : ''}>1-10名</option>
+                <option value="11-50" ${prospect.company_size === '11-50' ? 'selected' : ''}>11-50名</option>
+                <option value="51-200" ${prospect.company_size === '51-200' ? 'selected' : ''}>51-200名</option>
+                <option value="201-500" ${prospect.company_size === '201-500' ? 'selected' : ''}>201-500名</option>
+                <option value="501+" ${prospect.company_size === '501+' ? 'selected' : ''}>501名以上</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">担当者名</label>
+              <input type="text" id="edit_contact_name" value="${prospect.contact_name || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">役職</label>
+              <input type="text" id="edit_contact_position" value="${prospect.contact_position || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">メール</label>
+              <input type="email" id="edit_contact_email" value="${prospect.contact_email || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">電話番号</label>
+              <input type="tel" id="edit_contact_phone" value="${prospect.contact_phone || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-3 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">ステータス</label>
+              <select id="edit_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="new" ${prospect.status === 'new' ? 'selected' : ''}>新規</option>
+                <option value="contacted" ${prospect.status === 'contacted' ? 'selected' : ''}>接触済</option>
+                <option value="qualified" ${prospect.status === 'qualified' ? 'selected' : ''}>見込みあり</option>
+                <option value="negotiating" ${prospect.status === 'negotiating' ? 'selected' : ''}>商談中</option>
+                <option value="contracted" ${prospect.status === 'contracted' ? 'selected' : ''}>契約済</option>
+                <option value="not_qualified" ${prospect.status === 'not_qualified' ? 'selected' : ''}>見込みなし</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">優先度</label>
+              <select id="edit_priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="low" ${prospect.priority === 'low' ? 'selected' : ''}>低</option>
+                <option value="medium" ${prospect.priority === 'medium' ? 'selected' : ''}>中</option>
+                <option value="high" ${prospect.priority === 'high' ? 'selected' : ''}>高</option>
+                <option value="urgent" ${prospect.priority === 'urgent' ? 'selected' : ''}>緊急</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">見込み金額</label>
+              <input type="number" id="edit_estimated_value" value="${prospect.estimated_value || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">メモ</label>
+            <textarea id="edit_notes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg">${prospect.notes || ''}</textarea>
+          </div>
+          
+          <div class="flex justify-end gap-3">
+            <button type="button" onclick="document.getElementById('edit-prospect-modal').remove()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+              キャンセル
+            </button>
+            <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+              <i class="fas fa-save mr-2"></i>保存
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    };
+    
+    document.body.appendChild(modal);
+  } catch (error) {
+    console.error('Failed to load prospect:', error);
+    showToast('見込み客情報の取得に失敗しました', 'error');
   }
 }
 
-function viewMeetingDetail(meetingId) {
-  showToast('商談詳細表示（実装予定）', 'info');
+async function submitEditProspect(event, prospectId) {
+  event.preventDefault();
+  
+  const formData = {
+    company_name: document.getElementById('edit_company_name').value,
+    company_url: document.getElementById('edit_company_url').value || null,
+    industry: document.getElementById('edit_industry').value || null,
+    company_size: document.getElementById('edit_company_size').value || null,
+    contact_name: document.getElementById('edit_contact_name').value || null,
+    contact_position: document.getElementById('edit_contact_position').value || null,
+    contact_email: document.getElementById('edit_contact_email').value || null,
+    contact_phone: document.getElementById('edit_contact_phone').value || null,
+    status: document.getElementById('edit_status').value,
+    priority: document.getElementById('edit_priority').value,
+    estimated_value: parseInt(document.getElementById('edit_estimated_value').value) || null,
+    notes: document.getElementById('edit_notes').value || null
+  };
+  
+  try {
+    const response = await axios.put(`/api/prospects/${prospectId}`, formData, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      showToast('見込み客を更新しました', 'success');
+      document.getElementById('edit-prospect-modal').remove();
+      await loadProspects();
+      renderProspectsView();
+    }
+  } catch (error) {
+    console.error('Failed to update prospect:', error);
+    showToast('見込み客の更新に失敗しました', 'error');
+  }
+}
+
+async function deleteProspect(prospectId) {
+  if (!confirm('この見込み客を削除してもよろしいですか？\n関連する商談・ToDoも削除されます。')) return;
+  
+  try {
+    await axios.delete(`/api/prospects/${prospectId}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    showToast('見込み客を削除しました', 'success');
+    await loadProspects();
+    renderProspectsView();
+  } catch (error) {
+    console.error('Failed to delete prospect:', error);
+    showToast('見込み客の削除に失敗しました', 'error');
+  }
+}
+
+async function editConnection(connectionId) {
+  try {
+    const response = await axios.get(`/api/networking-connections/connections`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (!response.data.success) {
+      showToast('人脈情報の取得に失敗しました', 'error');
+      return;
+    }
+    
+    const connection = response.data.connections.find(c => c.id === connectionId);
+    if (!connection) {
+      showToast('人脈が見つかりません', 'error');
+      return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'edit-connection-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
+          <h2 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-edit mr-2 text-green-600"></i>人脈を編集
+          </h2>
+          <button onclick="document.getElementById('edit-connection-modal').remove()" class="text-gray-400 hover:text-gray-600 transition">
+            <i class="fas fa-times text-2xl"></i>
+          </button>
+        </div>
+        
+        <form onsubmit="submitEditConnection(event, ${connectionId})" class="p-6 space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">名前 <span class="text-red-500">*</span></label>
+              <input type="text" id="edit_person_name" value="${connection.person_name || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">会社名</label>
+              <input type="text" id="edit_connection_company" value="${connection.company || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">役職</label>
+              <input type="text" id="edit_connection_position" value="${connection.position || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">業界</label>
+              <input type="text" id="edit_connection_industry" value="${connection.industry || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">メール</label>
+              <input type="email" id="edit_connection_email" value="${connection.email || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">電話</label>
+              <input type="tel" id="edit_connection_phone" value="${connection.phone || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">関係強度</label>
+            <select id="edit_relationship_strength" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              <option value="weak" ${connection.relationship_strength === 'weak' ? 'selected' : ''}>弱い</option>
+              <option value="moderate" ${connection.relationship_strength === 'moderate' ? 'selected' : ''}>普通</option>
+              <option value="strong" ${connection.relationship_strength === 'strong' ? 'selected' : ''}>強い</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">メモ</label>
+            <textarea id="edit_connection_notes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg">${connection.notes || ''}</textarea>
+          </div>
+          
+          <div class="flex justify-end gap-3">
+            <button type="button" onclick="document.getElementById('edit-connection-modal').remove()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+              キャンセル
+            </button>
+            <button type="submit" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+              <i class="fas fa-save mr-2"></i>保存
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    };
+    
+    document.body.appendChild(modal);
+  } catch (error) {
+    console.error('Failed to load connection:', error);
+    showToast('人脈情報の取得に失敗しました', 'error');
+  }
+}
+
+async function submitEditConnection(event, connectionId) {
+  event.preventDefault();
+  
+  const formData = {
+    person_name: document.getElementById('edit_person_name').value,
+    company: document.getElementById('edit_connection_company').value || null,
+    position: document.getElementById('edit_connection_position').value || null,
+    industry: document.getElementById('edit_connection_industry').value || null,
+    email: document.getElementById('edit_connection_email').value || null,
+    phone: document.getElementById('edit_connection_phone').value || null,
+    relationship_strength: document.getElementById('edit_relationship_strength').value,
+    notes: document.getElementById('edit_connection_notes').value || null
+  };
+  
+  try {
+    const response = await axios.put(`/api/networking-connections/connections/${connectionId}`, formData, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      showToast('人脈を更新しました', 'success');
+      document.getElementById('edit-connection-modal').remove();
+      await loadConnections();
+      renderConnectionsView();
+    }
+  } catch (error) {
+    console.error('Failed to update connection:', error);
+    showToast('人脈の更新に失敗しました', 'error');
+  }
+}
+
+async function deleteConnection(connectionId) {
+  if (!confirm('この人脈を削除してもよろしいですか？')) return;
+  
+  try {
+    await axios.delete(`/api/networking-connections/connections/${connectionId}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    showToast('人脈を削除しました', 'success');
+    await loadConnections();
+    renderConnectionsView();
+  } catch (error) {
+    console.error('Failed to delete connection:', error);
+    showToast('人脈の削除に失敗しました', 'error');
+  }
+}
+
+async function viewMeetingDetail(meetingId) {
+  try {
+    const response = await axios.get(`/api/meetings/${meetingId}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (!response.data.success) {
+      showToast('商談情報の取得に失敗しました', 'error');
+      return;
+    }
+    
+    const meeting = response.data.meeting;
+    const todos = response.data.todos || [];
+    
+    const modal = document.createElement('div');
+    modal.id = 'meeting-detail-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
+          <h2 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-calendar-check mr-2 text-indigo-600"></i>商談詳細
+          </h2>
+          <button onclick="document.getElementById('meeting-detail-modal').remove()" class="text-gray-400 hover:text-gray-600 transition">
+            <i class="fas fa-times text-2xl"></i>
+          </button>
+        </div>
+        
+        <div class="p-6 space-y-6">
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-600 mb-2">企業名</h3>
+              <p class="text-lg">${meeting.company_name || '-'}</p>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-gray-600 mb-2">担当者</h3>
+              <p class="text-lg">${meeting.contact_name || '-'}</p>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-3 gap-6">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-600 mb-2">商談日</h3>
+              <p class="text-lg">${meeting.meeting_date || '-'}</p>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-gray-600 mb-2">種別</h3>
+              <p class="text-lg">${meeting.meeting_type || '-'}</p>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-gray-600 mb-2">時間</h3>
+              <p class="text-lg">${meeting.duration_minutes ? meeting.duration_minutes + '分' : '-'}</p>
+            </div>
+          </div>
+          
+          <div>
+            <h3 class="text-sm font-semibold text-gray-600 mb-2">参加者</h3>
+            <p class="text-lg">${meeting.attendees || '-'}</p>
+          </div>
+          
+          <div>
+            <h3 class="text-sm font-semibold text-gray-600 mb-2">場所</h3>
+            <p class="text-lg">${meeting.location || '-'}</p>
+          </div>
+          
+          ${meeting.agenda ? `
+          <div>
+            <h3 class="text-sm font-semibold text-gray-600 mb-2">議題</h3>
+            <p class="text-gray-800 whitespace-pre-wrap">${meeting.agenda}</p>
+          </div>
+          ` : ''}
+          
+          ${meeting.minutes ? `
+          <div>
+            <h3 class="text-sm font-semibold text-gray-600 mb-2">議事録</h3>
+            <p class="text-gray-800 whitespace-pre-wrap">${meeting.minutes}</p>
+          </div>
+          ` : ''}
+          
+          ${meeting.next_actions ? `
+          <div>
+            <h3 class="text-sm font-semibold text-gray-600 mb-2">次のアクション</h3>
+            <p class="text-gray-800 whitespace-pre-wrap">${meeting.next_actions}</p>
+          </div>
+          ` : ''}
+          
+          ${todos.length > 0 ? `
+          <div>
+            <h3 class="text-sm font-semibold text-gray-600 mb-3">ToDo一覧</h3>
+            <div class="space-y-2">
+              ${todos.map(todo => `
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <input type="checkbox" ${todo.status === 'completed' ? 'checked' : ''} 
+                         onchange="toggleTodoStatus(${todo.id}, this.checked)" 
+                         class="w-5 h-5">
+                  <div class="flex-1">
+                    <div class="font-medium ${todo.status === 'completed' ? 'line-through text-gray-500' : ''}">
+                      ${todo.title}
+                    </div>
+                    ${todo.due_date ? `<div class="text-sm text-gray-500 mt-1">期限: ${todo.due_date}</div>` : ''}
+                  </div>
+                  <span class="px-2 py-1 text-xs rounded-full ${
+                    todo.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                    todo.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                    todo.priority === 'medium' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }">
+                    ${todo.priority === 'urgent' ? '緊急' : todo.priority === 'high' ? '高' : todo.priority === 'medium' ? '中' : '低'}
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <div class="flex justify-end gap-3">
+            <button onclick="document.getElementById('meeting-detail-modal').remove()" class="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+              閉じる
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    };
+    
+    document.body.appendChild(modal);
+  } catch (error) {
+    console.error('Failed to load meeting detail:', error);
+    showToast('商談詳細の取得に失敗しました', 'error');
+  }
 }
 
 function showToast(message, type = 'info') {

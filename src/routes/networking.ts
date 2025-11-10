@@ -307,6 +307,23 @@ app.put('/matches/:matchId/status', async (c) => {
   }
 });
 
+// Delete connection
+app.delete('/connections/:id', async (c) => {
+  try {
+    const connectionId = c.req.param('id');
+    const userId = c.get('user')?.id;
+    const { DB } = c.env;
+
+    await DB.prepare(`
+      DELETE FROM networking_connections WHERE id = ? AND sales_id = ?
+    `).bind(connectionId, userId).run();
+
+    return c.json({ success: true, message: 'Connection deleted successfully' });
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 // AI: Generate introduction email for group
 app.post('/matches/:matchId/generate-introduction', async (c) => {
   try {

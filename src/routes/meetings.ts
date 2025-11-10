@@ -383,4 +383,36 @@ app.put('/todos/:todoId', async (c) => {
   }
 });
 
+// Delete meeting
+app.delete('/:id', async (c) => {
+  try {
+    const meetingId = c.req.param('id');
+    const { DB } = c.env;
+
+    await DB.prepare(`
+      DELETE FROM meetings WHERE id = ?
+    `).bind(meetingId).run();
+
+    return c.json({ success: true, message: 'Meeting deleted successfully' });
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// Delete todo
+app.delete('/todos/:todoId', async (c) => {
+  try {
+    const todoId = c.req.param('todoId');
+    const { DB } = c.env;
+
+    await DB.prepare(`
+      DELETE FROM meeting_todos WHERE id = ?
+    `).bind(todoId).run();
+
+    return c.json({ success: true, message: 'Todo deleted successfully' });
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 export default app;
