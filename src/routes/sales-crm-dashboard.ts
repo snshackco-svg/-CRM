@@ -344,7 +344,7 @@ app.get('/', async (c) => {
 
 /**
  * POST /api/sales-crm/dashboard/kpi-goals
- * KPI月間目標の保存・更新
+ * KPI月間目標の保存・更新（8項目対応）
  */
 app.post('/kpi-goals', async (c) => {
   try {
@@ -367,15 +367,25 @@ app.post('/kpi-goals', async (c) => {
       // 更新
       await DB.prepare(`
         UPDATE kpi_monthly_goals
-        SET deals_goal = ?,
-            appointments_goal = ?,
+        SET appointments_goal = ?,
+            qualified_goal = ?,
+            negotiations_goal = ?,
+            deals_goal = ?,
+            customer_unit_price_goal = ?,
             revenue_goal = ?,
+            gross_profit_goal = ?,
+            new_agencies_goal = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).bind(
-        data.deals_goal,
         data.appointments_goal,
+        data.qualified_goal,
+        data.negotiations_goal,
+        data.deals_goal,
+        data.customer_unit_price_goal,
         data.revenue_goal,
+        data.gross_profit_goal,
+        data.new_agencies_goal,
         existing.id
       ).run();
 
@@ -387,15 +397,21 @@ app.post('/kpi-goals', async (c) => {
       // 新規作成
       await DB.prepare(`
         INSERT INTO kpi_monthly_goals (
-          user_id, year, month, deals_goal, appointments_goal, revenue_goal
-        ) VALUES (?, ?, ?, ?, ?, ?)
+          user_id, year, month, appointments_goal, qualified_goal, negotiations_goal, 
+          deals_goal, customer_unit_price_goal, revenue_goal, gross_profit_goal, new_agencies_goal
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         userId,
         year,
         month,
-        data.deals_goal,
         data.appointments_goal,
-        data.revenue_goal
+        data.qualified_goal,
+        data.negotiations_goal,
+        data.deals_goal,
+        data.customer_unit_price_goal,
+        data.revenue_goal,
+        data.gross_profit_goal,
+        data.new_agencies_goal
       ).run();
 
       return c.json({
@@ -458,6 +474,128 @@ app.get('/kpi-goals', async (c) => {
     }
   } catch (error: any) {
     console.error('KPI goals fetch failed:', error);
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/sales-crm/dashboard/kpi-weekly-goals
+ * KPI週間目標の保存・更新
+ */
+app.post('/kpi-weekly-goals', async (c) => {
+  try {
+    const { DB } = c.env;
+    const user = c.get('user');
+    const userId = user?.id;
+    const data = await c.req.json();
+
+    // 既存の目標を確認
+    const existing = await DB.prepare(`
+      SELECT id FROM kpi_weekly_goals
+      WHERE user_id = ? AND year = ? AND month = ? AND week_number = ?
+    `).bind(userId, data.year, data.month, data.week_number).first();
+
+    if (existing) {
+      // 更新
+      await DB.prepare(`
+        UPDATE kpi_weekly_goals
+        SET week_start_date = ?,
+            week_end_date = ?,
+            appointments_goal = ?,
+            qualified_goal = ?,
+            negotiations_goal = ?,
+            deals_goal = ?,
+            customer_unit_price_goal = ?,
+            revenue_goal = ?,
+            gross_profit_goal = ?,
+            new_agencies_goal = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(
+        data.week_start_date,
+        data.week_end_date,
+        data.appointments_goal,
+        data.qualified_goal,
+        data.negotiations_goal,
+        data.deals_goal,
+        data.customer_unit_price_goal,
+        data.revenue_goal,
+        data.gross_profit_goal,
+        data.new_agencies_goal,
+        existing.id
+      ).run();
+
+      return c.json({
+        success: true,
+        message: '週間KPI目標を更新しました'
+      });
+    } else {
+      // 新規作成
+      await DB.prepare(`
+        INSERT INTO kpi_weekly_goals (
+          user_id, year, month, week_number, week_start_date, week_end_date,
+          appointments_goal, qualified_goal, negotiations_goal, deals_goal,
+          customer_unit_price_goal, revenue_goal, gross_profit_goal, new_agencies_goal
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        userId,
+        data.year,
+        data.month,
+        data.week_number,
+        data.week_start_date,
+        data.week_end_date,
+        data.appointments_goal,
+        data.qualified_goal,
+        data.negotiations_goal,
+        data.deals_goal,
+        data.customer_unit_price_goal,
+        data.revenue_goal,
+        data.gross_profit_goal,
+        data.new_agencies_goal
+      ).run();
+
+      return c.json({
+        success: true,
+        message: '週間KPI目標を保存しました'
+      });
+    }
+  } catch (error: any) {
+    console.error('Weekly KPI goals save failed:', error);
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/sales-crm/dashboard/kpi-weekly-goals
+ * KPI週間目標の取得
+ */
+app.get('/kpi-weekly-goals', async (c) => {
+  try {
+    const { DB } = c.env;
+    const user = c.get('user');
+    const userId = user?.id;
+
+    const year = parseInt(c.req.query('year') || new Date().getFullYear().toString());
+    const month = parseInt(c.req.query('month') || (new Date().getMonth() + 1).toString());
+
+    const goals = await DB.prepare(`
+      SELECT * FROM kpi_weekly_goals
+      WHERE user_id = ? AND year = ? AND month = ?
+      ORDER BY week_number ASC
+    `).bind(userId, year, month).all();
+
+    return c.json({
+      success: true,
+      goals: goals.results || []
+    });
+  } catch (error: any) {
+    console.error('Weekly KPI goals fetch failed:', error);
     return c.json({
       success: false,
       error: error.message
