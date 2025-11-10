@@ -4,6 +4,7 @@
 - **名前**: webapp
 - **目的**: Cloudflare Pages上で動作する軽量なWebアプリケーション
 - **技術スタック**: Hono + TypeScript + Vite + Wrangler
+- **GitHub**: https://github.com/snshackco-svg/-CRM
 
 ## 現在完了している機能
 - ✅ Honoフレームワークのセットアップ
@@ -14,6 +15,7 @@
 - ✅ Cloudflare Pagesへのデプロイ完了
 
 ## 機能エントリURI
+- **GitHub**: https://github.com/snshackco-svg/-CRM
 - **開発環境**: https://3000-i1mkx5q1zq4ia2cl2uplc-3844e1b6.sandbox.novita.ai
 - **本番環境**: https://49d4f52f.webapp-2-1j8.pages.dev
 - **本番URL（メイン）**: https://webapp-2-1j8.pages.dev
@@ -26,10 +28,11 @@
 - カスタムドメインの設定
 
 ## 推奨される次のステップ
-1. **GitHub連携**: GitHubタブで認証を設定してコードをリモートリポジトリにプッシュ
-2. **機能追加**: カスタムAPI routes、データベース、認証などの機能実装
-3. **データベース統合**: 必要に応じてCloudflare D1/KV/R2を追加
-4. **カスタムドメイン**: Cloudflare Pagesでカスタムドメインを設定
+1. **CRM機能実装**: 顧客管理機能の設計と実装
+2. **API routes追加**: RESTful APIエンドポイントの作成
+3. **データベース統合**: Cloudflare D1で顧客データを永続化
+4. **認証機能**: ユーザーログイン・認可機能の追加
+5. **カスタムドメイン**: Cloudflare Pagesでカスタムドメインを設定
 
 ## データアーキテクチャ
 - **データモデル**: 現在未設定
