@@ -51,7 +51,7 @@ function renderLayout() {
       </div>
 
       <!-- Navigation Tabs -->
-      <div class="grid grid-cols-5 gap-2 mb-4">
+      <div class="grid grid-cols-6 gap-2 mb-4">
         <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
           <i class="fas fa-tachometer-alt mr-2"></i>ダッシュボード
         </button>
@@ -67,8 +67,11 @@ function renderLayout() {
         <button onclick="switchView('connections')" id="nav-connections" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
           <i class="fas fa-users mr-2"></i>人脈管理
         </button>
+        <button onclick="switchView('research')" id="nav-research" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
+          <i class="fas fa-search mr-2"></i>事前リサーチ
+        </button>
       </div>
-      <div class="grid grid-cols-5 gap-2 mb-4">
+      <div class="grid grid-cols-6 gap-2 mb-4">
         <button onclick="switchView('referrals')" id="nav-referrals" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
           <i class="fas fa-user-friends mr-2"></i>紹介者ランキング
         </button>
@@ -83,6 +86,9 @@ function renderLayout() {
         </button>
         <button onclick="switchView('analytics')" id="nav-analytics" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
           <i class="fas fa-chart-pie mr-2"></i>営業分析
+        </button>
+        <button onclick="switchView('matching')" id="nav-matching" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
+          <i class="fas fa-network-wired mr-2"></i>人脈マッチング
         </button>
       </div>
 
@@ -120,6 +126,9 @@ function switchView(view) {
     case 'connections':
       renderConnectionsView();
       break;
+    case 'research':
+      renderResearchView();
+      break;
     case 'referrals':
       renderReferralsView();
       break;
@@ -134,6 +143,9 @@ function switchView(view) {
       break;
     case 'analytics':
       renderAnalyticsView();
+      break;
+    case 'matching':
+      renderMatchingView();
       break;
     case 'prospect-detail':
       renderProspectDetail();
@@ -433,21 +445,15 @@ function renderProspectDetail() {
     </div>
 
     <!-- Tabs for Detail Views -->
-    <div class="grid grid-cols-5 gap-2 mb-6">
+    <div class="grid grid-cols-3 gap-2 mb-6">
       <button onclick="switchProspectTab('overview')" id="prospect-tab-overview" class="prospect-tab px-4 py-3 rounded-xl font-semibold text-sm transition shadow-md bg-indigo-600 text-white">
         <i class="fas fa-info-circle mr-2"></i>概要
-      </button>
-      <button onclick="switchProspectTab('research')" id="prospect-tab-research" class="prospect-tab px-4 py-3 rounded-xl font-semibold text-sm transition shadow-md bg-white text-gray-600">
-        <i class="fas fa-search mr-2"></i>事前リサーチ
       </button>
       <button onclick="switchProspectTab('meetings')" id="prospect-tab-meetings" class="prospect-tab px-4 py-3 rounded-xl font-semibold text-sm transition shadow-md bg-white text-gray-600">
         <i class="fas fa-calendar-alt mr-2"></i>商談履歴
       </button>
       <button onclick="switchProspectTab('todos')" id="prospect-tab-todos" class="prospect-tab px-4 py-3 rounded-xl font-semibold text-sm transition shadow-md bg-white text-gray-600">
         <i class="fas fa-tasks mr-2"></i>ToDo
-      </button>
-      <button onclick="switchProspectTab('matching')" id="prospect-tab-matching" class="prospect-tab px-4 py-3 rounded-xl font-semibold text-sm transition shadow-md bg-white text-gray-600">
-        <i class="fas fa-network-wired mr-2"></i>人脈マッチング
       </button>
     </div>
 
@@ -471,17 +477,11 @@ function switchProspectTab(tab) {
     case 'overview':
       contentDiv.innerHTML = renderOverviewTab();
       break;
-    case 'research':
-      contentDiv.innerHTML = renderResearchTab();
-      break;
     case 'meetings':
       contentDiv.innerHTML = renderMeetingsTab();
       break;
     case 'todos':
       contentDiv.innerHTML = renderTodosTab();
-      break;
-    case 'matching':
-      contentDiv.innerHTML = renderMatchingTab();
       break;
   }
 }
@@ -532,12 +532,6 @@ function renderOverviewTab() {
         <div class="space-y-3">
           <button onclick="showNewMeetingModal(${p.id})" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg transition text-left">
             <i class="fas fa-calendar-plus mr-2"></i>新規商談登録
-          </button>
-          <button onclick="generateResearch(${p.id})" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg transition text-left">
-            <i class="fas fa-robot mr-2"></i>AI事前リサーチ生成
-          </button>
-          <button onclick="findMatches(${p.id})" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg transition text-left">
-            <i class="fas fa-network-wired mr-2"></i>人脈マッチング実行
           </button>
         </div>
       </div>
@@ -6505,6 +6499,311 @@ function getPriorityLabel(priority) {
     low: '低'
   };
   return labels[priority] || priority;
+}
+
+// ==================== RESEARCH VIEW ====================
+
+async function renderResearchView() {
+  await loadProspects();
+  
+  const contentArea = document.getElementById('content-area');
+  
+  contentArea.innerHTML = `
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">
+        <i class="fas fa-search mr-2 text-purple-600"></i>事前リサーチ
+      </h2>
+      <p class="text-gray-600">AIが自動的に企業情報を調査し、商談に役立つ情報を提供します</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      ${prospects.map(p => {
+        const hasResearch = p.ai_research && Object.keys(p.ai_research).length > 0;
+        return `
+          <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 cursor-pointer" onclick="viewProspectResearch(${p.id})">
+            <div class="flex justify-between items-start mb-3">
+              <h3 class="text-lg font-bold text-gray-800">${p.company_name}</h3>
+              ${hasResearch ? 
+                '<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold"><i class="fas fa-check mr-1"></i>完了</span>' :
+                '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">未実行</span>'
+              }
+            </div>
+            
+            <div class="space-y-2 text-sm text-gray-600 mb-4">
+              <div><i class="fas fa-industry mr-2"></i>${p.industry || '-'}</div>
+              <div><i class="fas fa-users mr-2"></i>${p.company_size || '-'}</div>
+              <div><i class="fas fa-user-tie mr-2"></i>${p.contact_person || '-'}</div>
+            </div>
+            
+            ${hasResearch ? `
+              <button onclick="event.stopPropagation(); viewProspectResearch(${p.id})" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                <i class="fas fa-eye mr-2"></i>リサーチを見る
+              </button>
+            ` : `
+              <button onclick="event.stopPropagation(); generateResearch(${p.id})" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                <i class="fas fa-robot mr-2"></i>リサーチ生成
+              </button>
+            `}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+async function viewProspectResearch(prospectId) {
+  try {
+    const response = await axios.get(`/api/prospects/${prospectId}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      currentProspect = {
+        prospect: response.data.prospect,
+        research: response.data.ai_research,
+        meetings: response.data.meetings || [],
+        todos: response.data.todos || [],
+        matches: response.data.matches || []
+      };
+      
+      const research = currentProspect.research;
+      const p = currentProspect.prospect;
+      
+      const contentArea = document.getElementById('content-area');
+      
+      if (!research) {
+        contentArea.innerHTML = `
+          <div class="mb-4">
+            <button onclick="renderResearchView()" class="text-indigo-600 hover:text-indigo-800">
+              <i class="fas fa-arrow-left mr-2"></i>一覧に戻る
+            </button>
+          </div>
+          
+          <div class="bg-white rounded-xl shadow-md p-8 text-center">
+            <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">${p.company_name}の事前リサーチがまだ作成されていません</h3>
+            <p class="text-gray-600 mb-4">AIが自動的に企業情報を調査し、商談に役立つ情報を提供します</p>
+            <button onclick="generateResearch(${p.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition">
+              <i class="fas fa-robot mr-2"></i>AI事前リサーチを生成
+            </button>
+          </div>
+        `;
+        return;
+      }
+      
+      contentArea.innerHTML = `
+        <div class="mb-4 flex justify-between items-center">
+          <button onclick="renderResearchView()" class="text-indigo-600 hover:text-indigo-800">
+            <i class="fas fa-arrow-left mr-2"></i>一覧に戻る
+          </button>
+          <h2 class="text-2xl font-bold text-gray-800">${p.company_name} - 事前リサーチ</h2>
+          <button onclick="generateResearch(${p.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition">
+            <i class="fas fa-sync mr-2"></i>再生成
+          </button>
+        </div>
+        
+        <div class="space-y-4">
+          <!-- Business Overview -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+              <i class="fas fa-briefcase mr-2 text-indigo-600"></i>事業概要
+            </h3>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.business_overview}</p>
+          </div>
+
+          <!-- Key Personnel -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+              <i class="fas fa-user-tie mr-2 text-blue-600"></i>キーパーソン
+            </h3>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.key_personnel}</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Recent News -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-newspaper mr-2 text-green-600"></i>最近のニュース
+              </h3>
+              <p class="text-gray-700 whitespace-pre-wrap">${research.recent_news}</p>
+            </div>
+
+            <!-- Pain Points -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-exclamation-triangle mr-2 text-orange-600"></i>課題・ペインポイント
+              </h3>
+              <p class="text-gray-700 whitespace-pre-wrap">${research.pain_points}</p>
+            </div>
+          </div>
+
+          <!-- Opportunities -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+              <i class="fas fa-lightbulb mr-2 text-yellow-600"></i>商機・アプローチ案
+            </h3>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.opportunities}</p>
+          </div>
+
+          <!-- Suggested Approach -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+              <i class="fas fa-route mr-2 text-purple-600"></i>推奨アプローチ
+            </h3>
+            <p class="text-gray-700 whitespace-pre-wrap">${research.suggested_approach}</p>
+          </div>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Failed to load prospect research:', error);
+    showToast('リサーチ情報の読み込みに失敗しました', 'error');
+  }
+}
+
+// ==================== MATCHING VIEW ====================
+
+async function renderMatchingView() {
+  await loadProspects();
+  
+  const contentArea = document.getElementById('content-area');
+  
+  contentArea.innerHTML = `
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">
+        <i class="fas fa-network-wired mr-2 text-green-600"></i>人脈マッチング
+      </h2>
+      <p class="text-gray-600">AIが自動的に有望な人脈をピックアップします</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      ${prospects.map(p => {
+        const matchCount = p.networking_matches ? p.networking_matches.length : 0;
+        return `
+          <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 cursor-pointer" onclick="viewProspectMatches(${p.id})">
+            <div class="flex justify-between items-start mb-3">
+              <h3 class="text-lg font-bold text-gray-800">${p.company_name}</h3>
+              ${matchCount > 0 ? 
+                `<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold"><i class="fas fa-check mr-1"></i>${matchCount}件</span>` :
+                '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">未実行</span>'
+              }
+            </div>
+            
+            <div class="space-y-2 text-sm text-gray-600 mb-4">
+              <div><i class="fas fa-industry mr-2"></i>${p.industry || '-'}</div>
+              <div><i class="fas fa-users mr-2"></i>${p.company_size || '-'}</div>
+              <div><i class="fas fa-user-tie mr-2"></i>${p.contact_person || '-'}</div>
+            </div>
+            
+            ${matchCount > 0 ? `
+              <button onclick="event.stopPropagation(); viewProspectMatches(${p.id})" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                <i class="fas fa-eye mr-2"></i>マッチングを見る
+              </button>
+            ` : `
+              <button onclick="event.stopPropagation(); findMatches(${p.id})" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                <i class="fas fa-sync mr-2"></i>マッチング実行
+              </button>
+            `}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+async function viewProspectMatches(prospectId) {
+  try {
+    const response = await axios.get(`/api/prospects/${prospectId}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      currentProspect = {
+        prospect: response.data.prospect,
+        research: response.data.ai_research,
+        meetings: response.data.meetings || [],
+        todos: response.data.todos || [],
+        matches: response.data.matches || []
+      };
+      
+      const matches = currentProspect.matches || [];
+      const p = currentProspect.prospect;
+      
+      const contentArea = document.getElementById('content-area');
+      
+      contentArea.innerHTML = `
+        <div class="mb-4 flex justify-between items-center">
+          <button onclick="renderMatchingView()" class="text-indigo-600 hover:text-indigo-800">
+            <i class="fas fa-arrow-left mr-2"></i>一覧に戻る
+          </button>
+          <h2 class="text-2xl font-bold text-gray-800">${p.company_name} - 人脈マッチング</h2>
+          <button onclick="findMatches(${p.id})" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+            <i class="fas fa-sync mr-2"></i>再実行
+          </button>
+        </div>
+
+        ${matches.length === 0 ? `
+          <div class="bg-white rounded-xl shadow-md p-8 text-center">
+            <i class="fas fa-user-friends text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">人脈マッチングがまだ実行されていません</h3>
+            <p class="text-gray-600 mb-4">AIが自動的に有望な人脈をピックアップします</p>
+            <button onclick="findMatches(${p.id})" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition">
+              <i class="fas fa-sync mr-2"></i>マッチング実行
+            </button>
+          </div>
+        ` : `
+          <div class="space-y-4">
+            ${matches.map(m => `
+              <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 class="text-lg font-bold text-gray-800">${m.person_name}</h3>
+                    <p class="text-sm text-gray-600">${m.company || ''} ${m.position || ''}</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                      マッチ度: ${Math.round(m.match_score * 100)}%
+                    </span>
+                    <span class="px-3 py-1 ${
+                      m.status === 'suggested' ? 'bg-blue-100 text-blue-800' :
+                      m.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      m.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    } rounded-full text-sm font-semibold">
+                      ${m.status}
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="mb-4">
+                  <span class="text-sm font-semibold text-gray-600">マッチング理由:</span>
+                  <p class="text-sm text-gray-700 mt-1">${m.match_reason}</p>
+                </div>
+                
+                ${m.status === 'suggested' ? `
+                  <div class="flex gap-2">
+                    <button onclick="approveMatch(${m.id})" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+                      <i class="fas fa-check mr-2"></i>承認
+                    </button>
+                    <button onclick="rejectMatch(${m.id})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition">
+                      <i class="fas fa-times mr-2"></i>却下
+                    </button>
+                  </div>
+                ` : m.status === 'approved' ? `
+                  <button onclick="generateIntroductionEmail(${m.id})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+                    <i class="fas fa-envelope mr-2"></i>紹介メール作成
+                  </button>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        `}
+      `;
+    }
+  } catch (error) {
+    console.error('Failed to load prospect matches:', error);
+    showToast('マッチング情報の読み込みに失敗しました', 'error');
+  }
 }
 
 // Initialize on page load
