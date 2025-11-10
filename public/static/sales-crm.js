@@ -3201,65 +3201,93 @@ async function saveKPI(kpiData) {
 async function renderKPIView() {
   const contentArea = document.getElementById('content-area');
   
+  // 当月のみ表示するように制限
+  const currentMonth = dayjs().format('YYYY-MM');
+  const selectedMonth = dayjs(currentKPIPeriod).format('YYYY-MM');
+  
+  // 当月以外が選択されている場合は当月に戻す
+  if (selectedMonth !== currentMonth) {
+    currentKPIPeriod = currentMonth;
+  }
+  
   if (!showingWeeklyKPI) {
-    // Monthly KPI View
-    const kpis = await loadKPIs('monthly', currentKPIPeriod);
+    // Monthly KPI View - 新しいAPIから取得
+    const year = dayjs(currentKPIPeriod).year();
+    const month = dayjs(currentKPIPeriod).month() + 1;
     
-    // Create KPI map
-    const kpiMap = {};
-    kpis.forEach(kpi => {
-      kpiMap[kpi.goal_type] = kpi;
-    });
+    let kpiGoals = null;
+    try {
+      const response = await axios.get(`/api/sales-crm/dashboard/kpi-goals?year=${year}&month=${month}`, {
+        headers: { 'X-Session-Token': sessionToken }
+      });
+      if (response.data.success) {
+        kpiGoals = response.data.goals;
+      }
+    } catch (error) {
+      console.error('Failed to load KPI goals:', error);
+      showToast('KPI目標の読み込みに失敗しました', 'error');
+    }
     
     contentArea.innerHTML = `
       <div class="mb-6">
         <h2 class="text-2xl font-bold text-gray-800 mb-2">
-          <i class="fas fa-chart-line mr-2 text-indigo-600"></i>月間KPI設定
+          <i class="fas fa-chart-line mr-2 text-indigo-600"></i>月間KPI設定（当月のみ）
         </h2>
-        <p class="text-gray-600 text-sm">月次の目標値を設定してください（月のKPIをクリックすると週間KPI設定へ）</p>
-      </div>
-
-      <!-- Month Selector -->
-      <div class="flex justify-between items-center mb-6">
-        <div class="flex gap-2 items-center">
-          <button onclick="changeKPIMonth(-1)" class="p-2 bg-white rounded-lg hover:bg-gray-100 transition">
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <div class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold">
-            ${dayjs(currentKPIPeriod).format('YYYY年MM月')}
-          </div>
-          <button onclick="changeKPIMonth(1)" class="p-2 bg-white rounded-lg hover:bg-gray-100 transition">
-            <i class="fas fa-chevron-right"></i>
-          </button>
-        </div>
-        <button onclick="showWeeklyKPI()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
-          <i class="fas fa-calendar-week mr-2"></i>週間KPIを設定
-        </button>
+        <p class="text-gray-600 text-sm">今月（${dayjs(currentKPIPeriod).format('YYYY年MM月')}）の目標値を設定してください</p>
       </div>
 
       <!-- KPI Input Grid -->
-      <div class="grid grid-cols-2 gap-4 mb-6">
-        ${renderKPICard('appointments', 'アポ数', 'calendar-check', 'blue', kpiMap)}
-        ${renderKPICard('qualified', '見込み化数', 'user-check', 'green', kpiMap)}
-        ${renderKPICard('negotiations', '商談数', 'handshake', 'yellow', kpiMap)}
-        ${renderKPICard('contracts', '契約数', 'file-signature', 'purple', kpiMap)}
-        ${renderKPICard('customer_unit_price', '顧客単価', 'yen-sign', 'pink', kpiMap)}
-        ${renderKPICard('new_revenue', '新規売上', 'chart-line', 'indigo', kpiMap)}
-        ${renderKPICard('gross_profit', '粗利', 'coins', 'orange', kpiMap)}
-        ${renderKPICard('partnerships', '協業先数', 'hands-helping', 'teal', kpiMap)}
+      <div class="grid grid-cols-1 gap-4 mb-6">
+        ${renderNewKPICard('deals_goal', '成約目標', 'trophy', 'blue', kpiGoals?.deals_goal || 5, '件')}
+        ${renderNewKPICard('appointments_goal', 'アポ目標', 'calendar-check', 'green', kpiGoals?.appointments_goal || 20, '件')}
+        ${renderNewKPICard('revenue_goal', '売上目標', 'yen-sign', 'purple', kpiGoals?.revenue_goal || 2000000, '円')}
       </div>
 
       <!-- Save Button -->
       <div class="flex justify-end">
-        <button onclick="saveMonthlyKPIs()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg transition font-bold">
-          <i class="fas fa-save mr-2"></i>月間KPIを保存
+        <button onclick="saveNewKPIGoals()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg transition font-bold">
+          <i class="fas fa-save mr-2"></i>KPI目標を保存
         </button>
+      </div>
+      
+      <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p class="text-sm text-blue-800">
+          <i class="fas fa-info-circle mr-2"></i>
+          <strong>注意:</strong> KPI目標は当月分のみ設定・表示できます。過去月や未来月の目標は設定できません。
+        </p>
       </div>
     `;
   } else {
     // Weekly KPI View
     renderWeeklyKPIView();
   }
+}
+
+function renderNewKPICard(fieldName, label, icon, color, value, unit) {
+  return `
+    <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-${color}-500">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-16 h-16 bg-${color}-100 rounded-lg flex items-center justify-center">
+            <i class="fas fa-${icon} text-${color}-600 text-2xl"></i>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-gray-800">${label}</h3>
+            <p class="text-sm text-gray-500">月間目標値</p>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <label class="text-sm font-medium text-gray-700 block mb-2">目標値</label>
+        <div class="flex items-center gap-2">
+          <input type="number" id="kpi-${fieldName}" value="${value}" 
+                 class="flex-1 px-4 py-3 text-lg font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-${color}-500 focus:border-${color}-500">
+          <span class="text-lg font-bold text-gray-700">${unit}</span>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderKPICard(goalType, label, icon, color, kpiMap) {
@@ -3390,6 +3418,40 @@ function showWeeklyKPI() {
   renderKPIView();
 }
 
+async function saveNewKPIGoals() {
+  const year = dayjs(currentKPIPeriod).year();
+  const month = dayjs(currentKPIPeriod).month() + 1;
+  
+  const deals_goal = parseInt(document.getElementById('kpi-deals_goal')?.value || 5);
+  const appointments_goal = parseInt(document.getElementById('kpi-appointments_goal')?.value || 20);
+  const revenue_goal = parseInt(document.getElementById('kpi-revenue_goal')?.value || 2000000);
+  
+  try {
+    const response = await axios.post('/api/sales-crm/dashboard/kpi-goals', {
+      year,
+      month,
+      deals_goal,
+      appointments_goal,
+      revenue_goal
+    }, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    
+    if (response.data.success) {
+      showToast('KPI目標を保存しました', 'success');
+      // ダッシュボードを更新（KPI反映のため）
+      if (currentView === 'dashboard') {
+        await renderDashboardView();
+      }
+    } else {
+      showToast('保存に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('Failed to save KPI goals:', error);
+    showToast('保存に失敗しました', 'error');
+  }
+}
+
 async function saveMonthlyKPIs() {
   const kpiTypes = ['appointments', 'qualified', 'negotiations', 'contracts', 'customer_unit_price', 'new_revenue', 'gross_profit', 'partnerships'];
   
@@ -3453,22 +3515,28 @@ async function renderWeeklyReportView() {
     console.error('Failed to load weekly stats:', error);
   }
   
-  // Load weekly KPIs for comparison
-  const currentMonth = dayjs().format('YYYY-MM');
-  const kpis = await loadKPIs('monthly', currentMonth);
+  // Load KPI goals from new API
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  let kpiGoals = null;
   
-  // Create KPI map
-  const kpiMap = {};
-  kpis.forEach(kpi => {
-    kpiMap[kpi.goal_type] = kpi;
-  });
+  try {
+    const response = await axios.get(`/api/sales-crm/dashboard/kpi-goals?year=${year}&month=${month}`, {
+      headers: { 'X-Session-Token': sessionToken }
+    });
+    if (response.data.success) {
+      kpiGoals = response.data.goals;
+    }
+  } catch (error) {
+    console.error('Failed to load KPI goals:', error);
+  }
   
-  // Calculate weekly targets (monthly / 4)
-  const appointmentsTarget = (kpiMap['appointments']?.goal_value || 0) / 4;
-  const qualifiedTarget = (kpiMap['qualified']?.goal_value || 0) / 4;
-  const negotiationsTarget = (kpiMap['negotiations']?.goal_value || 0) / 4;
-  const contractsTarget = (kpiMap['contracts']?.goal_value || 0) / 4;
-  const revenueTarget = (kpiMap['new_revenue']?.goal_value || 0) / 4;
+  // Calculate weekly targets from monthly goals (monthly / 4)
+  const appointmentsTarget = (kpiGoals?.appointments_goal || 20) / 4;
+  const qualifiedTarget = (kpiGoals?.appointments_goal || 20) / 4; // 見込み化数もアポ目標から計算
+  const negotiationsTarget = (kpiGoals?.appointments_goal || 20) / 4; // 商談数もアポ目標から計算
+  const contractsTarget = (kpiGoals?.deals_goal || 5) / 4;
+  const revenueTarget = (kpiGoals?.revenue_goal || 2000000) / 40000; // 万円単位に変換して週割り
   
   content.innerHTML = `
     <div class="bg-white rounded-xl shadow-lg p-6">
