@@ -11,22 +11,25 @@
 - ✅ PM2による開発サーバー管理
 - ✅ Gitリポジトリの初期化
 - ✅ ローカル開発サーバーの起動
+- ✅ Cloudflare Pagesへのデプロイ完了
 
 ## 機能エントリURI
 - **開発環境**: https://3000-i1mkx5q1zq4ia2cl2uplc-3844e1b6.sandbox.novita.ai
+- **本番環境**: https://49d4f52f.webapp-2-1j8.pages.dev
+- **本番URL（メイン）**: https://webapp-2-1j8.pages.dev
 - **ローカル**: http://localhost:3000
 
 ## まだ実装されていない機能
 - GitHub連携（設定が必要）
-- Cloudflare Pagesへのデプロイ（APIキーの設定が必要）
 - カスタムルート・API
 - データベース統合
+- カスタムドメインの設定
 
 ## 推奨される次のステップ
-1. **GitHub連携**: GitHubタブで認証を設定
-2. **Cloudflare API設定**: DeployタブでAPIキーを設定
-3. **本番環境デプロイ**: `npm run deploy:prod`でCloudflare Pagesにデプロイ
-4. **機能追加**: API routes、データベース、認証などの追加
+1. **GitHub連携**: GitHubタブで認証を設定してコードをリモートリポジトリにプッシュ
+2. **機能追加**: カスタムAPI routes、データベース、認証などの機能実装
+3. **データベース統合**: 必要に応じてCloudflare D1/KV/R2を追加
+4. **カスタムドメイン**: Cloudflare Pagesでカスタムドメインを設定
 
 ## データアーキテクチャ
 - **データモデル**: 現在未設定
@@ -73,18 +76,22 @@ npm run git:commit "コミットメッセージ"
 npm run git:log
 ```
 
-### 本番デプロイ（Cloudflare APIキー設定後）
+### 本番デプロイ
 ```bash
-# Cloudflare Pagesにデプロイ
-npm run deploy:prod
+# ビルドしてCloudflare Pagesにデプロイ
+export CLOUDFLARE_API_TOKEN="your-api-token"
+npm run build
+npx wrangler pages deploy dist --project-name webapp-2
 ```
 
 ## デプロイ状況
 - **プラットフォーム**: Cloudflare Pages
-- **開発環境**: ✅ 稼働中
-- **本番環境**: ❌ 未デプロイ（APIキー設定が必要）
+- **プロジェクト名**: webapp-2
+- **開発環境**: ✅ 稼働中 (https://3000-i1mkx5q1zq4ia2cl2uplc-3844e1b6.sandbox.novita.ai)
+- **本番環境**: ✅ 稼働中 (https://webapp-2-1j8.pages.dev)
+- **最終デプロイ**: 2025-11-10
 - **最終更新**: 2025-11-10
 
-## 次に必要な設定
-1. **GitHub認証**: GitHubタブで認証を完了させてください
-2. **Cloudflare APIキー**: DeployタブでクラウドフレアのAPIキーを設定してください
+## 次に推奨される設定
+1. **GitHub認証**: GitHubタブで認証を完了させ、コードをリモートリポジトリに保存
+2. **機能拡張**: APIエンドポイント、データベース、認証機能などを追加
