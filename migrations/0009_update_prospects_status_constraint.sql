@@ -30,9 +30,7 @@ CREATE TABLE prospects_new (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   is_partnership INTEGER NOT NULL DEFAULT 0 CHECK(is_partnership IN (0, 1)),
-  master_contact_id INTEGER,
-  FOREIGN KEY (sales_id) REFERENCES users(id),
-  FOREIGN KEY (master_contact_id) REFERENCES master_contacts(id)
+  master_contact_id INTEGER
 );
 
 -- 2. データをコピー
