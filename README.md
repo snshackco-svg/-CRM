@@ -54,6 +54,20 @@
   7. **場所・移動情報** - Googleマップ連携と所要時間推定
   8. **商談履歴タイムライン** - 過去の商談履歴を時系列表示
 
+- ✅ **AI API統合機能** 🆕
+  - **トークスクリプト生成**: 企業情報・商談タイプに基づく4段階スクリプト自動生成
+  - **フォローアップ計画**: 即時タスク・フォローアップタスク・次回商談推奨を自動提案
+  - **AI事前リサーチ**: 企業概要・キーパーソン・課題・アプローチ戦略を自動分析
+  - **Deepリサーチ**: 財務分析・競合分析・SWOT・戦略提案まで包括的に生成
+  - フォールバック機能付き（API失敗時もモックデータで継続動作）
+
+- ✅ **メール送信機能** 🆕
+  - **お礼メール**: 商談後の自動お礼メール（商談サマリー付き）
+  - **フォローアップメール**: カスタムメッセージ対応、次回日程調整
+  - **提案資料メール**: 導入効果・スケジュール・見積もり案内
+  - HTMLメールテンプレート（レスポンシブデザイン）
+  - SendGrid統合準備完了（APIキー設定のみで本番利用可能）
+
 ## 機能エントリURI
 
 ### 開発環境
@@ -61,14 +75,26 @@
 - **ローカル**: http://localhost:3000
 
 ### API エンドポイント
+
+**基本API:**
 - `GET /api/prospects` - 見込み客一覧取得
 - `POST /api/prospects` - 見込み客登録
 - `GET /api/meetings` - 商談一覧取得
 - `POST /api/meetings` - 商談登録（Notta URL含む場合は自動AI分析）
-- `GET /api/notta-analyses` - Notta分析結果一覧取得 🆕
 - `GET /api/networking` - 人脈一覧取得
 - `GET /api/sales-dashboard` - ダッシュボードデータ取得
 - `GET /api/sales-weekly-reports` - 週報一覧取得
+
+**AI統合API:** 🆕
+- `GET /api/notta-analyses` - Notta分析結果一覧取得
+- `POST /api/ai/generate-talk-script` - トークスクリプト生成
+- `POST /api/ai/generate-followup-plan` - フォローアップ計画生成
+- `POST /api/ai/generate-research` - AI事前リサーチ/Deepリサーチ生成
+
+**メール送信API:** 🆕
+- `POST /api/email/send-thank-you` - お礼メール送信
+- `POST /api/email/send-followup` - フォローアップメール送信
+- `POST /api/email/send-proposal` - 提案資料メール送信
 
 ### GitHub
 - **リポジトリ**: https://github.com/snshackco-svg/-CRM
@@ -232,21 +258,30 @@ git log --oneline
 
 - カスタムドメインの設定
 - 本番環境へのデプロイ（Cloudflare API Key設定が必要）
-- メール送信機能
-- 実際のNotta API統合（現在はモックデータ）
-- 実際のAI API統合（OpenAI等）
-- 高度なレポート機能（PDF出力など）
-- リアルタイム通知機能
+- 実際のNotta API統合（現在はモックデータ、APIキー設定で本番利用可能）
+- 実際のOpenAI API統合（現在はモックデータ、APIキー設定で本番利用可能）
+- 実際のSendGrid API統合（現在はモックデータ、APIキー設定で本番利用可能）
+- 提案資料のPDF生成機能
+- リアルタイム通知機能（ブラウザ通知、Slack連携など）
+- 高度なレポート機能（月次レポート、売上予測など）
 
 ## 推奨される次のステップ
 
-1. **Cloudflare API Key設定**: Deployタブから設定して本番デプロイ
-2. **実際のNotta API統合**: 現在はモックデータなので実APIに接続
-3. **実際のAI API統合**: OpenAI APIなどを使った自動化機能の追加
-4. **メール機能**: SendGridなどのメールサービス統合
-5. **提案資料生成**: PDFテンプレートの実装
-6. **認証強化**: OAuth、2FA などの追加
-7. **レポート機能**: より詳細な分析・レポート機能の実装
+### すぐに実装可能（APIキー設定のみ）
+1. **OpenAI API統合**: `src/routes/ai.ts`の`generateTalkScriptWithAI`等の関数を実API呼び出しに置き換え
+2. **SendGrid API統合**: `src/routes/email.ts`の`sendEmail`関数を実SendGrid API呼び出しに置き換え
+3. **Notta API統合**: `src/routes/meetings.ts`の`generateMockAISummary`を実Notta APIに置き換え
+
+### 中期的な実装
+4. **Cloudflare本番デプロイ**: Deployタブから設定して本番デプロイ
+5. **提案資料PDF生成**: PDFライブラリ（jsPDF等）を使った資料自動生成
+6. **リアルタイム通知**: Slack Webhook、ブラウザ通知の実装
+7. **高度なレポート**: 月次レポート、売上予測、ダッシュボード拡張
+
+### 長期的な拡張
+8. **認証強化**: OAuth、2FA などの追加
+9. **カスタムドメイン**: 独自ドメインの設定
+10. **モバイルアプリ**: PWA化またはネイティブアプリ開発
 
 ## デプロイ状況
 
