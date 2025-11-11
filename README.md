@@ -307,7 +307,7 @@ git log --oneline
 ## 推奨される次のステップ
 
 ### すぐに実装可能（APIキー設定のみ）
-1. **OpenAI API統合**: `src/routes/ai.ts`の`generateTalkScriptWithAI`等の関数を実API呼び出しに置き換え
+1. ✅ **OpenAI API統合**（**完了！**）- `.dev.vars`にAPIキーを設定して実GPT-4o-mini使用
 2. **SendGrid API統合**: `src/routes/email.ts`の`sendEmail`関数を実SendGrid API呼び出しに置き換え
 3. **Notta API統合**: `src/routes/meetings.ts`の`generateMockAISummary`を実Notta APIに置き換え
 
