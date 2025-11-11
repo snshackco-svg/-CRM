@@ -18,6 +18,7 @@ import nottaRoutes from './routes/notta';
 import aiRoutes from './routes/ai';
 import emailRoutes from './routes/email';
 import pdfRoutes from './routes/pdf';
+import searchRoutes from './routes/search';
 // Nurturing CRM routes (3-layer data model)
 import masterContactsRoutes from './routes/master-contacts';
 import dealsRoutes from './routes/deals';
@@ -46,6 +47,7 @@ app.route('/api/notta-analyses', nottaRoutes);
 app.route('/api/ai', aiRoutes);
 app.route('/api/email', emailRoutes);
 app.route('/api/pdf', pdfRoutes);
+app.route('/api/search', searchRoutes);
 // Nurturing CRM routes (3-layer data model)
 app.route('/api/master-contacts', masterContactsRoutes);
 app.route('/api/deals', dealsRoutes);
@@ -134,6 +136,7 @@ app.get('/sales-crm', (c) => {
         <script src="/static/feature-enhancements.js"></script>
         <script src="/static/data-management.js"></script>
         <script src="/static/quality-improvements.js"></script>
+        <script src="/static/search.js"></script>
         <script src="/static/appointment-prep.js"></script>
         <script src="/static/sales-crm.js"></script>
     </body>

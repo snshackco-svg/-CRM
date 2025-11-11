@@ -603,4 +603,153 @@ app.get('/kpi-weekly-goals', async (c) => {
   }
 });
 
+
+/**
+ * GET /api/sales-crm/dashboard/hot-leads
+ * ホットリード取得 - アクションが必要な見込み客を抽出
+ * 
+ * 抽出条件:
+ * 1. 最終接触から7日以上経過している（フォローアップが必要）
+ * 2. 商談予定が1週間以内にある（準備が必要）
+ * 3. フォローアップToDo期限切れ
+ * 4. ステータスが"negotiating"かつ最終更新から3日以上経過
+ */
+app.get('/hot-leads', async (c) => {
+  try {
+    const { DB } = c.env;
+    const user = c.get('user');
+    const userId = user?.id;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // 1. フォローアップが必要な見込み客（7日以上放置）
+    const needsFollowUpQuery = await DB.prepare(`
+      SELECT 
+        p.id, p.company_name, p.contact_name, p.status, p.estimated_value,
+        p.updated_at, p.is_partnership,
+        'needs_follow_up' as hot_lead_reason,
+        'フォローアップ期限切れ（7日以上更新なし）' as reason_text,
+        MAX(m.meeting_date) as last_meeting_date
+      FROM prospects p
+      LEFT JOIN meetings m ON p.id = m.prospect_id
+      WHERE p.sales_id = ?
+        AND p.status NOT IN ('won', 'lost')
+        AND DATE(p.updated_at) <= ?
+      GROUP BY p.id
+      ORDER BY p.updated_at ASC
+      LIMIT 10
+    `).bind(userId, sevenDaysAgo).all();
+
+    // 2. 商談予定が近い見込み客（1週間以内）
+    const upcomingMeetingsQuery = await DB.prepare(`
+      SELECT 
+        p.id, p.company_name, p.contact_name, p.status, p.estimated_value,
+        p.next_meeting_date,
+        'upcoming_meeting' as hot_lead_reason,
+        '商談予定が1週間以内' as reason_text,
+        p.next_meeting_date as meeting_date
+      FROM prospects p
+      WHERE p.sales_id = ?
+        AND p.status NOT IN ('won', 'lost')
+        AND p.next_meeting_date IS NOT NULL
+        AND DATE(p.next_meeting_date) BETWEEN ? AND ?
+      ORDER BY p.next_meeting_date ASC
+      LIMIT 10
+    `).bind(userId, today, sevenDaysLater).all();
+
+    // 3. 商談中だが動きがない見込み客（3日以上更新なし）
+    const stalledNegotiationsQuery = await DB.prepare(`
+      SELECT 
+        p.id, p.company_name, p.contact_name, p.status, p.estimated_value,
+        p.updated_at,
+        'stalled_negotiation' as hot_lead_reason,
+        '商談中だが3日以上動きなし' as reason_text
+      FROM prospects p
+      WHERE p.sales_id = ?
+        AND p.status = 'negotiating'
+        AND DATE(p.updated_at) <= ?
+      ORDER BY p.estimated_value DESC, p.updated_at ASC
+      LIMIT 10
+    `).bind(userId, threeDaysAgo).all();
+
+    // 4. 高額案件（estimated_value >= 100万）で進展なし
+    const highValueStalledQuery = await DB.prepare(`
+      SELECT 
+        p.id, p.company_name, p.contact_name, p.status, p.estimated_value,
+        p.updated_at,
+        'high_value_stalled' as hot_lead_reason,
+        '高額案件（¥' || CAST(p.estimated_value / 10000 AS INTEGER) || '万円）進展なし' as reason_text
+      FROM prospects p
+      WHERE p.sales_id = ?
+        AND p.status NOT IN ('won', 'lost')
+        AND p.estimated_value >= 1000000
+        AND DATE(p.updated_at) <= ?
+      ORDER BY p.estimated_value DESC
+      LIMIT 5
+    `).bind(userId, threeDaysAgo).all();
+
+    // 全てのホットリードをマージ（重複は id でユニーク化）
+    const allHotLeads = [
+      ...(needsFollowUpQuery.results || []),
+      ...(upcomingMeetingsQuery.results || []),
+      ...(stalledNegotiationsQuery.results || []),
+      ...(highValueStalledQuery.results || [])
+    ];
+
+    // IDでユニーク化（同じ見込み客が複数の理由で出る場合は最初のものを採用）
+    const uniqueHotLeads = Array.from(
+      new Map(allHotLeads.map((lead: any) => [lead.id, lead])).values()
+    );
+
+    // 優先度スコアを計算して並び替え
+    const scoredHotLeads = uniqueHotLeads.map((lead: any) => {
+      let priorityScore = 0;
+      
+      // 高額案件はスコア高
+      if (lead.estimated_value >= 1000000) priorityScore += 50;
+      else if (lead.estimated_value >= 500000) priorityScore += 30;
+      
+      // 商談中はスコア高
+      if (lead.status === 'negotiating') priorityScore += 40;
+      
+      // 商談予定が近いほどスコア高
+      if (lead.hot_lead_reason === 'upcoming_meeting') priorityScore += 60;
+      
+      // フォローアップ期限切れはスコア高
+      if (lead.hot_lead_reason === 'needs_follow_up') priorityScore += 35;
+      
+      return {
+        ...lead,
+        priority_score: priorityScore
+      };
+    });
+
+    // スコア順にソート
+    scoredHotLeads.sort((a, b) => b.priority_score - a.priority_score);
+
+    return c.json({
+      success: true,
+      hot_leads: scoredHotLeads.slice(0, 20), // 上位20件
+      total: scoredHotLeads.length,
+      summary: {
+        needs_follow_up: (needsFollowUpQuery.results || []).length,
+        upcoming_meetings: (upcomingMeetingsQuery.results || []).length,
+        stalled_negotiations: (stalledNegotiationsQuery.results || []).length,
+        high_value_stalled: (highValueStalledQuery.results || []).length
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Hot leads fetch failed:', error);
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+});
+
+
 export default app;

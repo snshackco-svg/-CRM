@@ -51,6 +51,11 @@ function renderLayout() {
         </div>
       </div>
 
+      <!-- Global Search Bar -->
+      <div class="mb-6 flex justify-center">
+        <script>document.write(renderSearchBar())</script>
+      </div>
+
       <!-- Navigation Tabs -->
       <div class="grid grid-cols-6 gap-2 mb-4">
         <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
