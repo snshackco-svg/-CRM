@@ -603,4 +603,36 @@ async function generateMockAISummary(meetingData: any, DB: D1Database): Promise<
   return summary;
 }
 
+// Create prospect-based todo (without meeting_id requirement)
+app.post('/prospect/:prospectId/todos', async (c) => {
+  try {
+    const prospectId = c.req.param('prospectId');
+    const { DB } = c.env;
+    const data = await c.req.json();
+
+    const result = await DB.prepare(`
+      INSERT INTO meeting_todos (
+        meeting_id, prospect_id, title, description, assignee_id, due_date, status, priority
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      null, // meeting_id is optional
+      prospectId,
+      data.title,
+      data.description || null,
+      data.assignee_id || null,
+      data.due_date || null,
+      data.status || 'pending',
+      data.priority || 'medium'
+    ).run();
+
+    return c.json({
+      success: true,
+      todo_id: result.meta.last_row_id,
+      message: 'Todo created successfully'
+    });
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 export default app;

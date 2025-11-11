@@ -19,7 +19,9 @@
     "db:seed": "wrangler d1 execute sales-crm-db --local --file=./seed-basic-users.sql",
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
     "db:console:local": "wrangler d1 execute sales-crm-db --local",
-    "db:console:prod": "wrangler d1 execute sales-crm-db"
+    "db:console:prod": "wrangler d1 execute sales-crm-db",
+    "backup:prod": "./scripts/backup-production-db.sh",
+    "db:status:prod": "npx wrangler d1 execute sales-crm-db --remote --command=\"SELECT (SELECT COUNT(*) FROM users) as users, (SELECT COUNT(*) FROM prospects) as prospects, (SELECT COUNT(*) FROM meetings) as meetings, (SELECT COUNT(*) FROM business_card_scans) as cards, (SELECT COUNT(*) FROM new_appointments) as appointments\""
   },
   "dependencies": {
     "hono": "^4.0.0",

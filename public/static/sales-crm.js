@@ -201,7 +201,7 @@ async function loadMeetings(month = null) {
     }
   } catch (error) {
     console.error('Failed to load meetings:', error);
-    showToast('商談履歴の読み込みに失敗しました', 'error');
+    showToast('接触履歴の読み込みに失敗しました', 'error');
   }
 }
 
@@ -476,7 +476,7 @@ function renderProspectDetail() {
         <i class="fas fa-info-circle mr-2"></i>概要
       </button>
       <button onclick="switchProspectTab('meetings')" id="prospect-tab-meetings" class="prospect-tab px-4 py-3 rounded-xl font-semibold text-sm transition shadow-md bg-white text-gray-600">
-        <i class="fas fa-calendar-alt mr-2"></i>商談履歴
+        <i class="fas fa-calendar-alt mr-2"></i>接触履歴
       </button>
       <button onclick="switchProspectTab('todos')" id="prospect-tab-todos" class="prospect-tab px-4 py-3 rounded-xl font-semibold text-sm transition shadow-md bg-white text-gray-600">
         <i class="fas fa-tasks mr-2"></i>ToDo
@@ -557,7 +557,7 @@ function renderOverviewTab() {
         </h3>
         <div class="space-y-3">
           <button onclick="showNewMeetingModal(${p.id})" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg transition text-left">
-            <i class="fas fa-calendar-plus mr-2"></i>新規商談登録
+            <i class="fas fa-calendar-plus mr-2"></i>追加アポ登録
           </button>
         </div>
       </div>
@@ -584,14 +584,14 @@ function renderMeetingsTab() {
   return `
     <div class="mb-4 flex justify-end">
       <button onclick="showNewMeetingModal(${p.id})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
-        <i class="fas fa-calendar-plus mr-2"></i>新規商談登録
+        <i class="fas fa-calendar-plus mr-2"></i>追加アポ登録
       </button>
     </div>
 
     ${meetings.length === 0 ? `
       <div class="bg-white rounded-xl shadow-md p-8 text-center">
         <i class="fas fa-calendar-times text-6xl text-gray-300 mb-4"></i>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">商談履歴がまだありません</h3>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">接触履歴がまだありません</h3>
         <p class="text-gray-600 mb-4">最初の商談を登録しましょう</p>
         <button onclick="showNewMeetingModal(${p.id})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg transition">
           <i class="fas fa-calendar-plus mr-2"></i>商談を登録
@@ -2318,7 +2318,7 @@ function showNewMeetingModal(prospectId) {
     <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
       <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
         <h2 class="text-2xl font-bold text-gray-800">
-          <i class="fas fa-calendar-plus mr-2 text-indigo-600"></i>新規商談登録
+          <i class="fas fa-calendar-plus mr-2 text-indigo-600"></i>追加アポ登録
         </h2>
         <button onclick="document.getElementById('new-meeting-modal').remove()" class="text-gray-400 hover:text-gray-600 transition">
           <i class="fas fa-times text-2xl"></i>
@@ -2332,13 +2332,15 @@ function showNewMeetingModal(prospectId) {
             <input type="date" id="meeting_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">商談種別 <span class="text-red-500">*</span></label>
-            <select id="meeting_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-              <option value="初回商談">初回商談</option>
-              <option value="フォロー商談">フォロー商談</option>
-              <option value="提案商談">提案商談</option>
-              <option value="成約商談">成約商談</option>
-              <option value="その他">その他</option>
+            <label class="block text-sm font-medium text-gray-700 mb-2">ステータス <span class="text-red-500">*</span></label>
+            <select id="meeting_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+              <option value="見込み外">見込み外</option>
+              <option value="見込み化">見込み化</option>
+              <option value="商談">商談</option>
+              <option value="契約">契約</option>
+              <option value="入金済み">入金済み</option>
+              <option value="協業候補">協業候補</option>
+              <option value="協業先">協業先</option>
             </select>
           </div>
         </div>
@@ -2415,7 +2417,7 @@ async function submitNewMeeting(event, prospectId) {
   const formData = {
     prospect_id: prospectId,
     meeting_date: document.getElementById('meeting_date').value,
-    meeting_type: document.getElementById('meeting_type').value,
+    meeting_type: document.getElementById('meeting_status').value,
     attendees: document.getElementById('attendees').value,
     location: document.getElementById('location').value || null,
     duration_minutes: parseInt(document.getElementById('duration_minutes').value) || null,
@@ -2532,7 +2534,7 @@ async function submitNewTodo(event, prospectId) {
   };
   
   try {
-    const response = await axios.post('/api/meetings/0/todos', formData, {
+    const response = await axios.post(`/api/meetings/prospect/${prospectId}/todos`, formData, {
       headers: { 'X-Session-Token': sessionToken }
     });
     
@@ -2645,12 +2647,10 @@ async function editProspect(prospectId) {
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">ステータス</label>
               <select id="edit_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                <option value="new" ${prospect.status === 'new' ? 'selected' : ''}>新規</option>
-                <option value="contacted" ${prospect.status === 'contacted' ? 'selected' : ''}>接触済</option>
-                <option value="qualified" ${prospect.status === 'qualified' ? 'selected' : ''}>見込みあり</option>
-                <option value="negotiating" ${prospect.status === 'negotiating' ? 'selected' : ''}>商談中</option>
-                <option value="contracted" ${prospect.status === 'contracted' ? 'selected' : ''}>契約済</option>
-                <option value="not_qualified" ${prospect.status === 'not_qualified' ? 'selected' : ''}>見込みなし</option>
+                <option value="lost" ${prospect.status === 'lost' ? 'selected' : ''}>見込み外</option>
+                <option value="contacted" ${prospect.status === 'contacted' ? 'selected' : ''}>見込み化</option>
+                <option value="negotiating" ${prospect.status === 'negotiating' ? 'selected' : ''}>商談</option>
+                <option value="won" ${prospect.status === 'won' ? 'selected' : ''}>契約</option>
               </select>
             </div>
             <div>
