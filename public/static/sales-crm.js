@@ -6619,7 +6619,7 @@ async function generateResearch(prospectId, isDeep = false) {
         prospect_id: prospectId,
         research_type: isDeep ? 'deep' : 'basic'
       }, {
-        headers: { 'Authorization': `Bearer ${sessionToken}` }
+        headers: { 'X-Session-Token': sessionToken }
       });
       
       if (aiResponse.data.success && aiResponse.data.research) {
