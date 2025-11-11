@@ -9,6 +9,7 @@ export type Bindings = {
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
   SENDGRID_API_KEY?: string;
+  GOOGLE_VISION_API_KEY?: string;
 }
 
 export type Variables = {
