@@ -91,6 +91,9 @@ function renderLayout() {
         <button onclick="switchView('matching')" id="nav-matching" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
           <i class="fas fa-network-wired mr-2"></i>人脈マッチング
         </button>
+        <button onclick="switchView('business-cards')" id="nav-business-cards" class="nav-tab px-4 py-3 rounded-xl font-bold text-sm transition shadow-md">
+          <i class="fas fa-address-card mr-2"></i>名刺スキャン
+        </button>
       </div>
 
     </div>
@@ -147,6 +150,9 @@ function switchView(view) {
       break;
     case 'matching':
       renderMatchingView();
+      break;
+    case 'business-cards':
+      renderBusinessCardsView();
       break;
     case 'prospect-detail':
       renderProspectDetail();
@@ -1721,24 +1727,7 @@ async function loadNottaAnalyses() {
 
 // ==================== UTILITY FUNCTIONS ====================
 
-async function generateResearch(prospectId) {
-  showToast('AI事前リサーチを生成中...', 'info');
-  
-  try {
-    const response = await axios.post(`/api/prospects/${prospectId}/research`, {}, {
-      headers: { 'X-Session-Token': sessionToken }
-    });
-    
-    if (response.data.success) {
-      showToast('事前リサーチを生成しました', 'success');
-      await viewProspect(prospectId);
-      switchProspectTab('research');
-    }
-  } catch (error) {
-    console.error('Failed to generate research:', error);
-    showToast('事前リサーチの生成に失敗しました', 'error');
-  }
-}
+// Removed duplicate - see generateResearch function at end of file with isDeep parameter
 
 async function findMatches(prospectId) {
   showToast('人脈マッチングを実行中...', 'info');
