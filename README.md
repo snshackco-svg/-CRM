@@ -70,6 +70,19 @@
   - HTMLメールテンプレート（レスポンシブデザイン）
   - SendGrid統合準備完了（APIキー設定のみで本番利用可能）
 
+- ✅ **PDF生成機能** 🆕
+  - **提案資料PDF**: 企業概要・提案内容・導入効果・スケジュールを含む完全な提案書
+  - **商談議事録PDF**: 商談内容・決定事項・アクションアイテムを含む議事録
+  - pdf-lib使用（Cloudflare Workers互換）
+  - ワンクリックでPDFダウンロード
+
+- ✅ **フロントエンドUI統合** 🆕
+  - 提案資料PDFダウンロードボタン（詳細ビュー）
+  - 商談議事録PDFダウンロードボタン（商談履歴タイムライン）
+  - お礼メール送信ボタン（商談履歴タイムライン）
+  - フォローアップメール送信ボタン（商談履歴タイムライン）
+  - Axiosでバイナリデータ対応（responseType: 'blob'）
+
 ## 機能エントリURI
 
 ### 開発環境
@@ -95,8 +108,12 @@
 
 **メール送信API:** 🆕
 - `POST /api/email/send-thank-you` - お礼メール送信
-- `POST /api/email/send-followup` - フォローアップメール送信
+- `POST /api/email/send-follow-up` - フォローアップメール送信
 - `POST /api/email/send-proposal` - 提案資料メール送信
+
+**PDF生成API:** 🆕
+- `POST /api/pdf/generate-proposal` - 提案資料PDF生成（バイナリ出力）
+- `POST /api/pdf/generate-minutes` - 商談議事録PDF生成（バイナリ出力）
 
 ### GitHub
 - **リポジトリ**: https://github.com/snshackco-svg/-CRM
@@ -296,11 +313,8 @@ git log --oneline
 ## まだ実装されていない機能
 
 - カスタムドメインの設定
-- 本番環境へのデプロイ（Cloudflare API Key設定が必要）
 - 実際のNotta API統合（現在はモックデータ、APIキー設定で本番利用可能）
-- ✅ **実際のOpenAI API統合**（**完了！**APIキー設定で本物のGPT-4o-mini使用）
-- 実際のSendGrid API統合（現在はモックデータ、APIキー設定で本番利用可能）
-- 提案資料のPDF生成機能
+- 実際のSendGrid API統合（実装済み、APIキー設定で本番利用可能）
 - リアルタイム通知機能（ブラウザ通知、Slack連携など）
 - 高度なレポート機能（月次レポート、売上予測など）
 
@@ -308,12 +322,12 @@ git log --oneline
 
 ### すぐに実装可能（APIキー設定のみ）
 1. ✅ **OpenAI API統合**（**完了！**）- `.dev.vars`にAPIキーを設定して実GPT-4o-mini使用
-2. **SendGrid API統合**: `src/routes/email.ts`の`sendEmail`関数を実SendGrid API呼び出しに置き換え
-3. **Notta API統合**: `src/routes/meetings.ts`の`generateMockAISummary`を実Notta APIに置き換え
+2. ✅ **SendGrid API統合**（**完了！**）- `.dev.vars`にAPIキーを設定して実メール送信可能
+3. ✅ **PDF生成機能**（**完了！**）- 提案資料と議事録のPDF生成を実装
+4. **Notta API統合**: `src/routes/meetings.ts`の`generateMockAISummary`を実Notta APIに置き換え
 
 ### 中期的な実装
-4. **Cloudflare本番デプロイ**: Deployタブから設定して本番デプロイ
-5. **提案資料PDF生成**: PDFライブラリ（jsPDF等）を使った資料自動生成
+5. **本番環境のAPIキー設定**: `wrangler pages secret put`でOpenAI/SendGridキーを本番に設定
 6. **リアルタイム通知**: Slack Webhook、ブラウザ通知の実装
 7. **高度なレポート**: 月次レポート、売上予測、ダッシュボード拡張
 
@@ -326,8 +340,9 @@ git log --oneline
 
 - **プラットフォーム**: Cloudflare Pages
 - **開発環境**: ✅ 稼働中 (https://3000-i1mkx5q1zq4ia2cl2uplc-3844e1b6.sandbox.novita.ai)
-- **本番環境**: ❌ 未デプロイ
-- **最終更新**: 2025-11-10
+- **本番環境**: ✅ デプロイ済み (https://227683d1.sales-crm.pages.dev)
+- **プロジェクト名**: sales-crm
+- **最終更新**: 2025-11-11
 
 ## トラブルシューティング
 
