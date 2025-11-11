@@ -1243,33 +1243,32 @@ async function renderKanbanView() {
   await loadProspects();
   
   // Separate prospects into customer list and partnership list
-  // Exclude "not_qualified" from pipeline
+  // Exclude "lost" (見込み外) from pipeline
   const customerProspects = prospects.filter(p => 
-    p.is_partnership === 0 && p.status !== 'not_qualified'
+    p.is_partnership === 0 && p.status !== 'lost'
   );
   const partnershipProspects = prospects.filter(p => 
-    p.is_partnership === 1 && p.status !== 'not_qualified'
+    p.is_partnership === 1 && p.status !== 'lost'
   );
   
   // Get prospects with next_meeting_date (日程調整中)
   const scheduledProspects = prospects.filter(p => 
-    p.next_meeting_date && p.status !== 'not_qualified'
+    p.next_meeting_date && p.status !== 'lost'
   );
   
-  // Customer pipeline columns: 日程調整中 → 見込み化 → 商談 → 契約 → 入金済み
+  // Customer pipeline columns: 日程調整中 → 見込み化 → 商談 → 契約
   const customerColumns = {
     scheduled: { title: '日程調整中', color: 'purple', prospects: scheduledProspects.filter(p => p.is_partnership === 0) },
-    qualified: { title: '見込み化', color: 'blue', prospects: [] },
+    contacted: { title: '見込み化', color: 'blue', prospects: [] },
     negotiating: { title: '商談', color: 'yellow', prospects: [] },
-    contracted: { title: '契約', color: 'orange', prospects: [] },
-    paid: { title: '入金済み', color: 'green', prospects: [] }
+    won: { title: '契約', color: 'green', prospects: [] }
   };
   
   // Partnership pipeline columns: 日程調整中 → 協業候補 → 協業先
   const partnershipColumns = {
     scheduled: { title: '日程調整中', color: 'purple', prospects: scheduledProspects.filter(p => p.is_partnership === 1) },
-    partnership_candidate: { title: '協業候補', color: 'indigo', prospects: [] },
-    partnership: { title: '協業先', color: 'teal', prospects: [] }
+    contacted: { title: '協業候補', color: 'indigo', prospects: [] },
+    won: { title: '協業先', color: 'teal', prospects: [] }
   };
   
   // Group customer prospects by status
@@ -1417,7 +1416,7 @@ async function handleDrop(event, newStatus, isPartnership) {
   try {
     // Update prospect status and partnership flag
     await axios.put(`/api/prospects/${draggedProspectId}`, {
-      status: newStatus === 'scheduled' ? 'qualified' : newStatus, // scheduled is special
+      status: newStatus === 'scheduled' ? 'contacted' : newStatus, // scheduled is special
       is_partnership: isPartnership
     }, {
       headers: { 'X-Session-Token': sessionToken }
