@@ -647,16 +647,16 @@ app.get('/hot-leads', async (c) => {
     const upcomingMeetingsQuery = await DB.prepare(`
       SELECT 
         p.id, p.company_name, p.contact_name, p.status, p.estimated_value,
-        p.next_meeting_date,
+        m.meeting_date,
         'upcoming_meeting' as hot_lead_reason,
-        '商談予定が1週間以内' as reason_text,
-        p.next_meeting_date as meeting_date
+        '商談予定が1週間以内' as reason_text
       FROM prospects p
+      JOIN meetings m ON p.id = m.prospect_id
       WHERE p.sales_id = ?
         AND p.status NOT IN ('won', 'lost')
-        AND p.next_meeting_date IS NOT NULL
-        AND DATE(p.next_meeting_date) BETWEEN ? AND ?
-      ORDER BY p.next_meeting_date ASC
+        AND DATE(m.meeting_date) BETWEEN ? AND ?
+      GROUP BY p.id
+      ORDER BY m.meeting_date ASC
       LIMIT 10
     `).bind(userId, today, sevenDaysLater).all();
 
