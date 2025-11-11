@@ -1495,16 +1495,52 @@ function updateChecklistStatus(meetingId, checkType) {
   showToast('チェックリストを更新しました', 'success');
 }
 
-// 3. Generate talk script
-function generateTalkScript(meetingId, prospectId, isFirstMeeting) {
+// 3. Generate talk script (with real AI API)
+async function generateTalkScript(meetingId, prospectId, isFirstMeeting) {
   const targetDiv = document.getElementById(`talk-script-${meetingId}`);
   const prospect = prospects.find(p => p.id === prospectId);
   
   if (!prospect) return;
   
-  showToast('トークスクリプトを生成中...', 'info');
+  showToast('AIがトークスクリプトを生成中...', 'info');
   
-  setTimeout(() => {
+  try {
+    // Call AI API to generate talk script
+    const sessionToken = localStorage.getItem('session_token');
+    const response = await axios.post('/api/ai/generate-talk-script', {
+      prospect_id: prospectId,
+      is_first_meeting: isFirstMeeting
+    }, {
+      headers: { 'Authorization': `Bearer ${sessionToken}` }
+    });
+    
+    if (response.data.success && response.data.talk_script) {
+      const phases = response.data.talk_script.phases;
+      let scriptHTML = '<div class="space-y-4">';
+      
+      const colors = ['blue', 'green', 'purple', 'orange'];
+      phases.forEach((phase, index) => {
+        const color = colors[index % colors.length];
+        scriptHTML += `
+          <div class="bg-${color}-50 border-l-4 border-${color}-500 p-4 rounded">
+            <h4 class="font-semibold text-${color}-900 mb-2">${phase.phase}</h4>
+            <ul class="list-disc list-inside space-y-1 text-sm text-${color}-800">
+              ${phase.scripts.map(script => `<li>${script}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      });
+      
+      scriptHTML += '</div>';
+      targetDiv.innerHTML = scriptHTML;
+      showToast('AIトークスクリプトを生成しました', 'success');
+    } else {
+      throw new Error('Failed to generate talk script');
+    }
+  } catch (error) {
+    console.error('AI generation error:', error);
+    // Fallback to mock data
+    setTimeout(() => {
     const script = isFirstMeeting ? `
       <div class="space-y-4">
         <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
@@ -1573,9 +1609,10 @@ function generateTalkScript(meetingId, prospectId, isFirstMeeting) {
       </div>
     `;
     
-    targetDiv.innerHTML = script;
-    showToast('トークスクリプトを生成しました', 'success');
-  }, 1000);
+      targetDiv.innerHTML = script;
+      showToast('トークスクリプトを生成しました（フォールバックモード）', 'success');
+    }, 1000);
+  }
 }
 
 // 5. Generate proposal template
@@ -1586,11 +1623,81 @@ function generateProposalTemplate(meetingId, prospectId) {
   }, 1500);
 }
 
-// 6. Generate follow-up actions
-function generateFollowUpActions(meetingId) {
+// 6. Generate follow-up actions (with real AI API)
+async function generateFollowUpActions(meetingId) {
   const targetDiv = document.getElementById(`followup-actions-${meetingId}`);
   
-  showToast('フォローアップ計画を生成中...', 'info');
+  showToast('AIがフォローアップ計画を生成中...', 'info');
+  
+  try {
+    // Call AI API to generate follow-up plan
+    const sessionToken = localStorage.getItem('session_token');
+    const response = await axios.post('/api/ai/generate-followup-plan', {
+      meeting_id: meetingId
+    }, {
+      headers: { 'Authorization': `Bearer ${sessionToken}` }
+    });
+    
+    if (response.data.success && response.data.followup_plan) {
+      const plan = response.data.followup_plan;
+      let planHTML = '<div class="space-y-4">';
+      
+      // Immediate actions
+      if (plan.immediate_actions && plan.immediate_actions.length > 0) {
+        planHTML += '<div class="bg-red-50 p-4 rounded-lg"><h5 class="font-semibold text-red-800 mb-2">🔥 即時対応が必要</h5><div class="space-y-2">';
+        plan.immediate_actions.forEach(action => {
+          planHTML += `
+            <label class="flex items-start gap-2 text-sm">
+              <input type="checkbox" class="mt-1">
+              <div>
+                <span class="font-medium">${action.task}</span>
+                <span class="text-xs text-gray-600 ml-2">期限: ${action.deadline}</span>
+              </div>
+            </label>
+          `;
+        });
+        planHTML += '</div></div>';
+      }
+      
+      // Follow-up actions
+      if (plan.follow_up_actions && plan.follow_up_actions.length > 0) {
+        planHTML += '<div class="bg-blue-50 p-4 rounded-lg"><h5 class="font-semibold text-blue-800 mb-2">📋 フォローアップタスク</h5><div class="space-y-2">';
+        plan.follow_up_actions.forEach(action => {
+          planHTML += `
+            <label class="flex items-start gap-2 text-sm">
+              <input type="checkbox" class="mt-1">
+              <div>
+                <span class="font-medium">${action.task}</span>
+                <span class="text-xs text-gray-600 ml-2">期限: ${action.deadline}</span>
+              </div>
+            </label>
+          `;
+        });
+        planHTML += '</div></div>';
+      }
+      
+      // Next meeting recommendation
+      if (plan.next_meeting_recommendation) {
+        const next = plan.next_meeting_recommendation;
+        planHTML += `
+          <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+            <h5 class="font-semibold text-green-800 mb-2">📅 次回商談の推奨</h5>
+            <p class="text-sm text-green-700 mb-2">推奨日: ${next.timing}</p>
+            ${next.agenda ? `<p class="text-sm text-green-700 mb-1">議題: ${next.agenda.join('、')}</p>` : ''}
+          </div>
+        `;
+      }
+      
+      planHTML += '</div>';
+      targetDiv.innerHTML = planHTML;
+      showToast('AIフォローアップ計画を生成しました', 'success');
+    } else {
+      throw new Error('Failed to generate follow-up plan');
+    }
+  } catch (error) {
+    console.error('AI generation error:', error);
+    // Fallback to mock data
+    showToast('フォールバックモードで生成中...', 'info');
   
   setTimeout(() => {
     targetDiv.innerHTML = `
@@ -1628,6 +1735,7 @@ function generateFollowUpActions(meetingId) {
         </div>
       </div>
     `;
-    showToast('フォローアップ計画を生成しました', 'success');
-  }, 1000);
+      showToast('フォローアップ計画を生成しました（フォールバックモード）', 'success');
+    }, 1000);
+  }
 }

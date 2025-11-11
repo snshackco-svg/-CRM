@@ -6619,9 +6619,28 @@ async function generateResearch(prospectId, isDeep = false) {
       return;
     }
     
-    // Simulate AI research generation (mock data)
-    // In production, this would call an AI API (OpenAI, Anthropic, etc.)
-    const mockResearch = {
+    // Call AI API to generate research
+    let researchData;
+    try {
+      const aiResponse = await axios.post('/api/ai/generate-research', {
+        prospect_id: prospectId,
+        research_type: isDeep ? 'deep' : 'basic'
+      }, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      
+      if (aiResponse.data.success && aiResponse.data.research) {
+        researchData = aiResponse.data.research;
+        showToast('AIでリサーチデータを生成しました', 'success');
+      } else {
+        throw new Error('AI API returned no data');
+      }
+    } catch (aiError) {
+      console.warn('AI API failed, using fallback mock data:', aiError);
+      showToast('フォールバックモードでリサーチを生成中...', 'info');
+      
+      // Fallback to mock data
+      const mockResearch = {
       business_overview: `${prospect.company_name}は${prospect.industry || 'IT'}業界で活動する企業です。主な事業内容は、デジタルトランスフォーメーション支援、システム開発、コンサルティングサービスを提供しています。近年は特にクラウド移行支援とAI導入コンサルティングに注力しています。`,
       
       key_personnel: `・代表取締役：${prospect.contact_person || '山田太郎'}\n・営業部長：田中花子\n・技術責任者：佐藤一郎\n\n${prospect.contact_person || '山田太郎'}氏は業界歴15年のベテランで、特にデジタル化推進に強い関心を持っています。`,
@@ -6647,10 +6666,13 @@ async function generateResearch(prospectId, isDeep = false) {
       swot_analysis: `【Strength（強み）】\n・代表者のリーダーシップと決断力\n・安定した財務基盤\n・${prospect.industry || 'IT'}業界での実績と信頼\n\n【Weakness（弱み）】\n・IT人材の不足\n・業務プロセスの属人化\n・デジタル化の遅れ\n\n【Opportunity（機会）】\n・市場の成長トレンド\n・政府支援策の活用\n・新規事業展開の余地\n\n【Threat（脅威）】\n・競合のデジタル化進展\n・人材獲得競争の激化\n・技術変化への対応遅れ`,
       
       strategic_proposal: `【戦略的アプローチ】\n\n■ Phase 1：信頼構築（1-2ヶ月）\n・経営層へのプレゼン（ROI重視）\n・現場ヒアリング（3-5名）\n・業界トップ企業の成功事例共有\n\n■ Phase 2：PoC実施（2-3ヶ月）\n・小規模部門でのトライアル\n・効果測定（工数削減率、エラー削減率）\n・社内推進チーム組成支援\n\n■ Phase 3：本格展開（3-6ヶ月）\n・全社展開計画の策定\n・段階的ロールアウト\n・トレーニングプログラム実施\n\n【予想予算】\n・初期費用：${prospect.estimated_value ? prospect.estimated_value.toLocaleString() : '300万'}円\n・月額費用：${prospect.estimated_value ? Math.floor(prospect.estimated_value / 10).toLocaleString() : '30万'}円\n・ROI達成期間：12-18ヶ月\n\n【リスク対策】\n・段階的導入による失敗リスク低減\n・専任サポート担当の配置\n・定期的な効果測定とPDCA`
-    } : mockResearch;
+      } : mockResearch;
+      
+      researchData = mockDeepResearch;
+    }
     
     // Update prospect with AI research
-    const updateData = isDeep ? { deep_research: mockDeepResearch } : { ai_research: mockResearch };
+    const updateData = isDeep ? { deep_research: researchData } : { ai_research: researchData };
     const response = await axios.put(`/api/prospects/${prospectId}`, updateData, {
       headers: { 'X-Session-Token': sessionToken }
     });
