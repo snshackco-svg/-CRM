@@ -449,20 +449,21 @@ function generateMockFollowUpPlan(context: any): any {
 }
 
 async function generateResearchWithAI(context: any, env: Bindings): Promise<any> {
-  // Check if OpenAI API key is configured
-  if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY === 'your-openai-api-key-here') {
-    console.warn('OpenAI API key not configured, using fallback mock data');
+  // Check if Perplexity API key is configured
+  if (!env.PERPLEXITY_API_KEY || env.PERPLEXITY_API_KEY === 'your-perplexity-api-key-here') {
+    console.warn('Perplexity API key not configured, using fallback mock data');
     return generateMockResearch(context);
   }
   
   try {
-    const openai = new OpenAI({
-      apiKey: env.OPENAI_API_KEY
-    });
-    
     const isDeep = context.research_type === 'deep';
     
-    const prompt = `あなたは企業リサーチの専門家です。以下の企業情報をもとに、${isDeep ? '包括的な' : '基本的な'}企業リサーチレポートを作成してください。
+    // Create search query for Perplexity to find real information
+    const searchQuery = `企業名: ${context.company_name}${context.company_url ? ` (${context.company_url})` : ''}。
+業界: ${context.industry || '不明'}、企業規模: ${context.company_size || '不明'}。
+この企業について、最新の情報を調べて、${isDeep ? '包括的な' : '基本的な'}企業リサーチレポートを作成してください。`;
+    
+    const prompt = `あなたは企業リサーチの専門家です。Web検索で得た最新の情報をもとに、${isDeep ? '包括的な' : '基本的な'}企業リサーチレポートを作成してください。
 
 【企業情報】
 - 企業名: ${context.company_name}
@@ -475,13 +476,13 @@ async function generateResearchWithAI(context: any, env: Bindings): Promise<any>
 ${isDeep ? `
 1. company_overview: 企業概要（事業内容、ビジネスモデル）
 2. business_model: 収益モデルと主要サービス
-3. key_insights: 重要な洞察（3-5項目）
-4. decision_makers: 意思決定者情報
+3. key_insights: 重要な洞察（3-5項目の配列）
+4. decision_makers: 意思決定者情報（配列）
 5. approach_strategy: アプローチ戦略
 6. financial_analysis: 財務分析（売上、利益率、成長性）
 7. competitor_analysis: 競合分析（主要競合3社と当社の優位性）
 8. market_trends: 市場動向と業界トレンド
-9. swot_analysis: SWOT分析（Strength、Weakness、Opportunity、Threat）
+9. swot_analysis: SWOT分析（Strength、Weakness、Opportunity、Threat各項目を配列で）
 10. strategic_proposal: 戦略的提案（Phase別の具体的アプローチ）
 ` : `
 1. company_overview: 企業概要
@@ -491,27 +492,66 @@ ${isDeep ? `
 5. approach_strategy: アプローチ戦略
 `}
 
-実在の情報がない場合は、業界標準や一般的な仮定に基づいて推測してください。
-JSONフォーマットで回答してください。`;
+**重要**: Web検索で得た実際の情報を使用してください。情報が見つからない場合のみ、業界標準や一般的な仮定に基づいて推測してください。
+必ずJSONフォーマットで回答してください。`;
 
-    const response = await openai.chat.completions.create({
-      model: env.OPENAI_MODEL || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: '企業リサーチの専門家として、詳細で実用的なレポートを作成してください。JSONフォーマットで出力してください。' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
+    // Call Perplexity API using fetch (standard in Cloudflare Workers)
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.PERPLEXITY_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'sonar-pro', // Use sonar-pro for web search + reasoning
+        messages: [
+          { 
+            role: 'system', 
+            content: '企業リサーチの専門家として、Web検索で得た最新の実際の情報を使って、詳細で実用的なレポートを作成してください。必ずJSONフォーマットで出力してください。' 
+          },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2, // Lower temperature for more factual responses
+        max_tokens: isDeep ? 4000 : 2000,
+        search_domain_filter: ['perplexity.ai'], // Use Perplexity's web search
+        return_citations: true, // Get source citations
+        return_related_questions: false
+      })
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Perplexity API error: ${response.status} ${errorText}`);
+    }
+
+    const data: any = await response.json();
+    const content = data.choices?.[0]?.message?.content;
     
-    const content = response.choices[0]?.message?.content;
     if (!content) {
-      throw new Error('No response from OpenAI');
+      throw new Error('No response from Perplexity API');
+    }
+
+    // Log citations if available (for debugging)
+    if (data.citations && data.citations.length > 0) {
+      console.log('Perplexity citations:', data.citations);
     }
     
-    return JSON.parse(content);
+    // Parse JSON response
+    let research;
+    try {
+      // Try to extract JSON from markdown code blocks if present
+      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
+                       content.match(/```\s*([\s\S]*?)\s*```/);
+      const jsonContent = jsonMatch ? jsonMatch[1] : content;
+      research = JSON.parse(jsonContent);
+    } catch (parseError) {
+      console.error('Failed to parse Perplexity response as JSON:', content);
+      throw new Error('Invalid JSON response from Perplexity API');
+    }
+    
+    return research;
   } catch (error) {
-    console.error('OpenAI API error, falling back to mock data:', error);
+    console.error('Perplexity API error, falling back to mock data:', error);
     return generateMockResearch(context);
   }
 }
