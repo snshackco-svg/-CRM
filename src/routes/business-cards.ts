@@ -67,29 +67,55 @@ app.post('/upload', async (c) => {
       return c.json({ success: false, error: 'No front image provided' }, 400);
     }
 
-    // Check file size (limit to 10MB each)
-    if (imageFront.size > 10 * 1024 * 1024) {
-      return c.json({ success: false, error: 'Front image file too large (max 10MB)' }, 400);
+    // Check file size (limit to 5MB each for Cloudflare Workers memory constraints)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (imageFront.size > MAX_FILE_SIZE) {
+      return c.json({ success: false, error: `Front image file too large (max 5MB). Current size: ${(imageFront.size / 1024 / 1024).toFixed(2)}MB` }, 400);
     }
-    if (imageBack && imageBack.size > 10 * 1024 * 1024) {
-      return c.json({ success: false, error: 'Back image file too large (max 10MB)' }, 400);
+    if (imageBack && imageBack.size > MAX_FILE_SIZE) {
+      return c.json({ success: false, error: `Back image file too large (max 5MB). Current size: ${(imageBack.size / 1024 / 1024).toFixed(2)}MB` }, 400);
     }
 
-    // Convert front image to base64 data URL
-    const imageFrontBuffer = await imageFront.arrayBuffer();
-    const base64ImageFront = btoa(
-      new Uint8Array(imageFrontBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-    const imageUrlFront = `data:${imageFront.type};base64,${base64ImageFront}`;
+    // Convert front image to base64 data URL with error handling
+    let imageUrlFront: string;
+    try {
+      const imageFrontBuffer = await imageFront.arrayBuffer();
+      const bytes = new Uint8Array(imageFrontBuffer);
+      
+      // Convert to base64 in chunks to avoid memory issues
+      const chunkSize = 8192;
+      let base64 = '';
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize);
+        base64 += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      const base64ImageFront = btoa(base64);
+      imageUrlFront = `data:${imageFront.type};base64,${base64ImageFront}`;
+    } catch (error) {
+      console.error('Error encoding front image:', error);
+      return c.json({ success: false, error: 'Failed to process front image. Please try a smaller image.' }, 500);
+    }
 
     // Convert back image to base64 data URL if provided
     let imageUrlBack = null;
     if (imageBack) {
-      const imageBackBuffer = await imageBack.arrayBuffer();
-      const base64ImageBack = btoa(
-        new Uint8Array(imageBackBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
-      imageUrlBack = `data:${imageBack.type};base64,${base64ImageBack}`;
+      try {
+        const imageBackBuffer = await imageBack.arrayBuffer();
+        const bytes = new Uint8Array(imageBackBuffer);
+        
+        // Convert to base64 in chunks to avoid memory issues
+        const chunkSize = 8192;
+        let base64 = '';
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          const chunk = bytes.slice(i, i + chunkSize);
+          base64 += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        const base64ImageBack = btoa(base64);
+        imageUrlBack = `data:${imageBack.type};base64,${base64ImageBack}`;
+      } catch (error) {
+        console.error('Error encoding back image:', error);
+        return c.json({ success: false, error: 'Failed to process back image. Please try a smaller image.' }, 500);
+      }
     }
 
     // Create initial record (OCR will be processed separately)
@@ -112,7 +138,15 @@ app.post('/upload', async (c) => {
     });
   } catch (error: any) {
     console.error('Upload business card error:', error);
-    return c.json({ success: false, error: error.message }, 500);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    return c.json({ 
+      success: false, 
+      error: `Upload failed: ${error.message || 'Unknown error'}. Please try a smaller image.` 
+    }, 500);
   }
 });
 
