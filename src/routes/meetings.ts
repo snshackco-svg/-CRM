@@ -128,7 +128,7 @@ app.post('/', async (c) => {
       data.prospect_id,
       data.meeting_date,
       data.meeting_type,
-      data.attendees,
+      data.attendees || '',
       data.location || null,
       data.duration_minutes || null,
       data.agenda || null,
