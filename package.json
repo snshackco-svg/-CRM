@@ -22,7 +22,8 @@
     "db:console:prod": "wrangler d1 execute sales-crm-db"
   },
   "dependencies": {
-    "hono": "^4.0.0"
+    "hono": "^4.0.0",
+    "openai": "^6.8.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20250705.0",

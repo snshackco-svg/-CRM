@@ -5,16 +5,17 @@ export type Bindings = {
   SUPABASE_ANON_KEY: string;
   DASHBOARD_PASSWORD: string;
   CSV_STORAGE: R2Bucket;
+  DB: D1Database;
+  OPENAI_API_KEY?: string;
+  OPENAI_MODEL?: string;
 }
 
 export type Variables = {
   authenticated: boolean;
   user?: {
     id: number;
-    username: string;
-    full_name: string;
-    role_type: string;
-    department_id: number | null;
+    email: string;
+    name: string;
   };
 }
 

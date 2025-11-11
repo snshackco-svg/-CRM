@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Bindings, Variables } from '../types';
 import { authMiddleware } from '../middleware/auth';
+import OpenAI from 'openai';
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -60,8 +61,8 @@ app.post('/generate-talk-script', async (c) => {
       key_insights: aiResearch?.key_insights || deepResearch?.strategic_proposal || null
     };
 
-    // Generate talk script using OpenAI (mock for now)
-    const talkScript = await generateTalkScriptWithAI(context);
+    // Generate talk script using OpenAI
+    const talkScript = await generateTalkScriptWithAI(context, c.env);
 
     return c.json({
       success: true,
@@ -114,8 +115,8 @@ app.post('/generate-followup-plan', async (c) => {
       prospect_status: meeting.status
     };
 
-    // Generate follow-up plan using OpenAI (mock for now)
-    const followUpPlan = await generateFollowUpPlanWithAI(context);
+    // Generate follow-up plan using OpenAI
+    const followUpPlan = await generateFollowUpPlanWithAI(context, c.env);
 
     return c.json({
       success: true,
@@ -153,8 +154,8 @@ app.post('/generate-research', async (c) => {
       research_type // 'basic' or 'deep'
     };
 
-    // Generate research using OpenAI (mock for now)
-    const research = await generateResearchWithAI(context);
+    // Generate research using OpenAI
+    const research = await generateResearchWithAI(context, c.env);
 
     return c.json({
       success: true,
@@ -166,11 +167,73 @@ app.post('/generate-research', async (c) => {
   }
 });
 
-// Mock AI functions (to be replaced with actual OpenAI API calls)
-async function generateTalkScriptWithAI(context: any): Promise<any> {
-  // This is a mock implementation
-  // In production, this would call OpenAI API with a structured prompt
+// OpenAI API functions
+async function generateTalkScriptWithAI(context: any, env: Bindings): Promise<any> {
+  const isFirstMeeting = context.is_first_meeting;
   
+  // Check if OpenAI API key is configured
+  if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY === 'your-openai-api-key-here') {
+    console.warn('OpenAI API key not configured, using fallback mock data');
+    return generateMockTalkScript(context);
+  }
+  
+  try {
+    const openai = new OpenAI({
+      apiKey: env.OPENAI_API_KEY
+    });
+    
+    const prompt = `あなたは経験豊富な営業コンサルタントです。以下の企業情報をもとに、効果的な商談トークスクリプトを作成してください。
+
+【企業情報】
+- 企業名: ${context.company_name}
+- 業界: ${context.industry || '不明'}
+- 企業規模: ${context.company_size || '不明'}
+- 担当者: ${context.contact_name} (${context.contact_position || '役職不明'})
+- 予算感: ${context.estimated_value ? `${(context.estimated_value / 10000).toFixed(0)}万円` : '未定'}
+- 商談タイプ: ${isFirstMeeting ? '初回アポイント' : 'フォローアップ商談'}
+- 過去の商談回数: ${context.meeting_count}回
+${context.key_insights ? `- 事前リサーチ情報: ${context.key_insights}` : ''}
+
+【要件】
+1. ${isFirstMeeting ? '初回商談' : 'フォローアップ商談'}に適した4つのフェーズに分けてください
+2. 各フェーズには具体的なトークスクリプトを3-4個含めてください
+3. 企業情報を活かした個別化されたスクリプトにしてください
+4. 自然で親しみやすい日本語を使ってください
+
+JSONフォーマットで回答してください：
+{
+  "phases": [
+    {
+      "phase": "フェーズ名（所要時間）",
+      "scripts": ["スクリプト1", "スクリプト2", ...]
+    }
+  ]
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: '営業トークスクリプトを生成する経験豊富なコンサルタントとして回答してください。JSONフォーマットで出力してください。' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      response_format: { type: 'json_object' }
+    });
+    
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No response from OpenAI');
+    }
+    
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('OpenAI API error, falling back to mock data:', error);
+    return generateMockTalkScript(context);
+  }
+}
+
+// Fallback mock function
+function generateMockTalkScript(context: any): any {
   const isFirstMeeting = context.is_first_meeting;
   
   if (isFirstMeeting) {
@@ -256,9 +319,67 @@ async function generateTalkScriptWithAI(context: any): Promise<any> {
   }
 }
 
-async function generateFollowUpPlanWithAI(context: any): Promise<any> {
-  // This is a mock implementation
-  // In production, this would call OpenAI API
+async function generateFollowUpPlanWithAI(context: any, env: Bindings): Promise<any> {
+  // Check if OpenAI API key is configured
+  if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY === 'your-openai-api-key-here') {
+    console.warn('OpenAI API key not configured, using fallback mock data');
+    return generateMockFollowUpPlan(context);
+  }
+  
+  try {
+    const openai = new OpenAI({
+      apiKey: env.OPENAI_API_KEY
+    });
+    
+    const prompt = `あなたは営業プロセスのエキスパートです。以下の商談情報をもとに、効果的なフォローアップ計画を作成してください。
+
+【商談情報】
+- 企業名: ${context.company_name}
+- 商談タイプ: ${context.meeting_type}
+- 商談日: ${context.meeting_date}
+- 商談結果: ${context.meeting_outcome || '記録なし'}
+- 議題: ${context.agenda || '記録なし'}
+- 議事録: ${context.minutes || '記録なし'}
+${context.ai_summary ? `- AI要約: ${JSON.stringify(context.ai_summary)}` : ''}
+
+【要件】
+1. immediate_actions: 24-48時間以内に行うべき即時アクション（3-4個）
+2. follow_up_actions: 今後1-2週間で行うフォローアップアクション（3-4個）
+3. next_meeting_recommendation: 次回商談の推奨タイミングと議題
+4. notes: その他の重要な注意事項
+
+各アクションには以下を含めてください：
+- task: 具体的なタスク内容
+- priority: high/medium/low
+- deadline: 期限（「24時間以内」「3日以内」など）
+- status: pending（固定）
+
+JSONフォーマットで回答してください。`;
+
+    const response = await openai.chat.completions.create({
+      model: env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'フォローアップ計画を作成する営業プロセスのエキスパートとして回答してください。JSONフォーマットで出力してください。' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      response_format: { type: 'json_object' }
+    });
+    
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No response from OpenAI');
+    }
+    
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('OpenAI API error, falling back to mock data:', error);
+    return generateMockFollowUpPlan(context);
+  }
+}
+
+// Fallback mock function
+function generateMockFollowUpPlan(context: any): any {
   
   const nextMeetingDate = new Date();
   nextMeetingDate.setDate(nextMeetingDate.getDate() + 7);
@@ -327,9 +448,76 @@ async function generateFollowUpPlanWithAI(context: any): Promise<any> {
   };
 }
 
-async function generateResearchWithAI(context: any): Promise<any> {
-  // This is a mock implementation
-  // In production, this would call OpenAI API to analyze company website and generate insights
+async function generateResearchWithAI(context: any, env: Bindings): Promise<any> {
+  // Check if OpenAI API key is configured
+  if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY === 'your-openai-api-key-here') {
+    console.warn('OpenAI API key not configured, using fallback mock data');
+    return generateMockResearch(context);
+  }
+  
+  try {
+    const openai = new OpenAI({
+      apiKey: env.OPENAI_API_KEY
+    });
+    
+    const isDeep = context.research_type === 'deep';
+    
+    const prompt = `あなたは企業リサーチの専門家です。以下の企業情報をもとに、${isDeep ? '包括的な' : '基本的な'}企業リサーチレポートを作成してください。
+
+【企業情報】
+- 企業名: ${context.company_name}
+- 企業URL: ${context.company_url || 'なし'}
+- 業界: ${context.industry || '不明'}
+- 企業規模: ${context.company_size || '不明'}
+- 担当者: ${context.contact_name} (${context.contact_position || '役職不明'})
+
+【要件 - ${isDeep ? 'Deepリサーチ' : '基本リサーチ'}】
+${isDeep ? `
+1. company_overview: 企業概要（事業内容、ビジネスモデル）
+2. business_model: 収益モデルと主要サービス
+3. key_insights: 重要な洞察（3-5項目）
+4. decision_makers: 意思決定者情報
+5. approach_strategy: アプローチ戦略
+6. financial_analysis: 財務分析（売上、利益率、成長性）
+7. competitor_analysis: 競合分析（主要競合3社と当社の優位性）
+8. market_trends: 市場動向と業界トレンド
+9. swot_analysis: SWOT分析（Strength、Weakness、Opportunity、Threat）
+10. strategic_proposal: 戦略的提案（Phase別の具体的アプローチ）
+` : `
+1. company_overview: 企業概要
+2. business_model: ビジネスモデル
+3. key_insights: 重要な洞察（配列）
+4. decision_makers: 意思決定者情報（配列）
+5. approach_strategy: アプローチ戦略
+`}
+
+実在の情報がない場合は、業界標準や一般的な仮定に基づいて推測してください。
+JSONフォーマットで回答してください。`;
+
+    const response = await openai.chat.completions.create({
+      model: env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: '企業リサーチの専門家として、詳細で実用的なレポートを作成してください。JSONフォーマットで出力してください。' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      response_format: { type: 'json_object' }
+    });
+    
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No response from OpenAI');
+    }
+    
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('OpenAI API error, falling back to mock data:', error);
+    return generateMockResearch(context);
+  }
+}
+
+// Fallback mock function
+function generateMockResearch(context: any): any {
   
   const isDeep = context.research_type === 'deep';
   
