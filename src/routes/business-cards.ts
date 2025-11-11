@@ -440,6 +440,15 @@ async function extractBusinessCardInfo(ocrText: string, env: any): Promise<any> 
             role: 'system',
             content: `あなたは日本の名刺情報を抽出する専門家です。OCRで読み取られた名刺のテキストから、正確に構造化された情報を抽出してJSON形式で返してください。
 
+【最重要】名前と会社名を絶対に間違えないこと！
+- **名前（name）**: 2-4文字の日本語の姓名（例: "山田 太郎"、"佐藤 花子"）。名刺の最初の行にあることが多い。
+- **会社名（company_name）**: 「株式会社」「有限会社」「合同会社」などを含む組織名。名前よりも長い。
+
+【識別ポイント】
+- 名前: 通常2-4文字、人名用の漢字、スペース区切りの姓名
+- 会社名: 「株式会社」「Corporation」「Inc.」「Co., Ltd.」などを含む
+- 会社名には部署名を含めない（例: ○「株式会社ABC」、×「株式会社ABC 営業部」）
+
 【重要な抽出ルール】
 1. **名前（name）**: 日本語の姓名を正確に抽出。英語は参考程度。役職は含めない。
 2. **会社名（company_name）**: 正式な会社名（株式会社○○、○○株式会社など）
@@ -452,8 +461,8 @@ async function extractBusinessCardInfo(ocrText: string, env: any): Promise<any> 
 
 【出力形式】
 {
-  "name": "人名",
-  "company_name": "会社名",
+  "name": "人名（2-4文字の日本語姓名）",
+  "company_name": "会社名（株式会社を含む組織名）",
   "title": "役職",
   "department": "部署名",
   "phone": "固定電話",
@@ -546,16 +555,33 @@ www.acme.co.jp`,
             {
               role: 'system',
               content: `あなたは日本の名刺情報を抽出する専門家です。以下のルールに厳密に従ってください:
-              
-1. nameは必ず日本語の姓名（例: "山田 太郎"）
-2. company_nameは会社の正式名称
-3. titleは役職のみ
-4. 情報がない場合はnullを返す
-5. 絶対に推測や創作をしない`,
+
+【最優先】名前と会社名を絶対に間違えないこと！
+- **name（名前）**: 2-4文字の日本語の人名（例: "山田 太郎"、"佐藤 花子"）
+- **company_name（会社名）**: 「株式会社」「有限会社」などを含む組織名（例: "株式会社テックイノベーション"）
+
+【判別方法】
+1. 名前は通常2-4文字の日本語で、人名用の漢字を使用
+2. 会社名は「株式会社」「Corporation」「Inc.」を含む
+3. 名前と会社名を逆にしないこと！
+
+必須フィールド:
+- name: 日本語の姓名（必須）
+- company_name: 会社の正式名称（必須）
+- title: 役職のみ
+- 情報がない場合はnullを返す
+- 絶対に推測や創作をしない`,
             },
             {
               role: 'user',
-              content: `以下のOCRテキストから名刺情報を抽出してください。特に「名前」と「会社名」を正確に:\n\n${ocrText}`,
+              content: `以下のOCRテキストから名刺情報を抽出してください。
+
+【特に注意】
+- nameには人名を入れる（会社名ではない）
+- company_nameには組織名を入れる（人名ではない）
+
+OCRテキスト:
+${ocrText}`,
             },
           ],
           temperature: 0.0,  // 完全に決定的に
@@ -569,6 +595,17 @@ www.acme.co.jp`,
         if (retryScore > confidenceScore) {
           console.log('Retry improved score:', retryScore);
           extracted = retryExtracted;
+        }
+      }
+      
+      // 名前と会社名が逆転していないかチェック
+      if (extracted.name && extracted.company_name) {
+        const swapped = detectNameCompanySwap(extracted.name, extracted.company_name);
+        if (swapped) {
+          console.log('Detected name/company swap, correcting...');
+          const temp = extracted.name;
+          extracted.name = extracted.company_name;
+          extracted.company_name = temp;
         }
       }
       
@@ -597,6 +634,37 @@ www.acme.co.jp`,
     // No OpenAI API key - use regex extraction
     return regexExtractBusinessCardInfo(ocrText);
   }
+}
+
+// Detect if name and company_name are swapped
+function detectNameCompanySwap(name: string, companyName: string): boolean {
+  if (!name || !companyName) return false;
+  
+  // Check if "name" contains company indicators
+  const companyIndicators = [
+    '株式会社', '有限会社', '合同会社', '合資会社', '合名会社',
+    'Corporation', 'Corp.', 'Inc.', 'Ltd.', 'Co.,', 'LLC', 'GmbH',
+    '社団法人', '財団法人', '医療法人', '学校法人'
+  ];
+  
+  for (const indicator of companyIndicators) {
+    if (name.includes(indicator)) {
+      return true; // name contains company indicator, likely swapped
+    }
+  }
+  
+  // Check if "company_name" looks like a person name (2-4 characters with space)
+  const personNamePattern = /^[\u4e00-\u9faf]{1,2}\s?[\u4e00-\u9faf]{1,2}$/;
+  if (personNamePattern.test(companyName) && companyName.length <= 5) {
+    return true; // company_name looks like a person name, likely swapped
+  }
+  
+  // Check length: names are usually shorter than company names
+  if (name.length > 15 && companyName.length <= 5) {
+    return true; // name is too long, company_name is too short, likely swapped
+  }
+  
+  return false;
 }
 
 // Validate and clean name
