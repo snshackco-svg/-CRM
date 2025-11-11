@@ -863,8 +863,8 @@ async function viewAppointmentPrep(meetingId) {
           <h3 class="text-lg font-bold text-gray-800 flex items-center">
             <i class="fas fa-file-invoice mr-2 text-orange-600"></i>提案資料テンプレート
           </h3>
-          <button onclick="generateProposalTemplate(${meeting.id}, ${prospect.id})" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition text-sm">
-            <i class="fas fa-download mr-2"></i>生成
+          <button onclick="downloadProposalPDF(${prospect.id})" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition text-sm">
+            <i class="fas fa-file-pdf mr-2"></i>PDFダウンロード
           </button>
         </div>
         <div class="grid grid-cols-3 gap-3">
@@ -941,11 +941,24 @@ async function viewAppointmentPrep(meetingId) {
               return `
                 <div class="relative ${isCurrent ? 'bg-indigo-50 -ml-6 pl-6 py-4 rounded-r-lg' : ''}">
                   <div class="absolute -left-9 w-4 h-4 rounded-full ${isCurrent ? 'bg-indigo-600 ring-4 ring-indigo-200' : 'bg-gray-400'} top-1"></div>
-                  <div class="mb-1">
-                    <span class="text-sm font-semibold ${isCurrent ? 'text-indigo-800' : 'text-gray-800'}">
-                      ${dayjs(m.meeting_date).format('YYYY年MM月DD日')}
-                      ${isCurrent ? '<span class="ml-2 px-2 py-1 bg-indigo-600 text-white rounded-full text-xs">← 今回</span>' : ''}
-                    </span>
+                  <div class="mb-1 flex justify-between items-start">
+                    <div>
+                      <span class="text-sm font-semibold ${isCurrent ? 'text-indigo-800' : 'text-gray-800'}">
+                        ${dayjs(m.meeting_date).format('YYYY年MM月DD日')}
+                        ${isCurrent ? '<span class="ml-2 px-2 py-1 bg-indigo-600 text-white rounded-full text-xs">← 今回</span>' : ''}
+                      </span>
+                    </div>
+                    <div class="flex gap-2">
+                      <button onclick="downloadMeetingMinutesPDF(${m.id})" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded transition" title="議事録PDF">
+                        <i class="fas fa-file-pdf"></i>
+                      </button>
+                      <button onclick="sendThankYouEmail(${m.id})" class="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded transition" title="お礼メール">
+                        <i class="fas fa-envelope"></i>
+                      </button>
+                      <button onclick="sendFollowUpEmail(${m.id})" class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded transition" title="フォローアップメール">
+                        <i class="fas fa-paper-plane"></i>
+                      </button>
+                    </div>
                   </div>
                   <p class="text-sm text-gray-600">${m.meeting_type || '商談'}</p>
                   ${m.meeting_outcome ? `<p class="text-xs text-gray-500 mt-1">結果: ${m.meeting_outcome}</p>` : ''}
@@ -1615,12 +1628,112 @@ async function generateTalkScript(meetingId, prospectId, isFirstMeeting) {
   }
 }
 
-// 5. Generate proposal template
-function generateProposalTemplate(meetingId, prospectId) {
-  showToast('提案資料テンプレートを準備中...', 'info');
-  setTimeout(() => {
-    showToast('提案資料テンプレートをダウンロードしました', 'success');
-  }, 1500);
+// 5. Download proposal PDF
+async function downloadProposalPDF(prospectId) {
+  showToast('提案資料PDFを生成中...', 'info');
+  
+  try {
+    const sessionToken = localStorage.getItem('session_token');
+    const response = await axios.post('/api/pdf/generate-proposal', {
+      prospect_id: prospectId
+    }, {
+      headers: { 'Authorization': `Bearer ${sessionToken}` },
+      responseType: 'blob'
+    });
+    
+    // Create download link
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `proposal_${Date.now()}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    showToast('提案資料PDFをダウンロードしました', 'success');
+  } catch (error) {
+    console.error('PDF download error:', error);
+    showToast('PDFダウンロードに失敗しました', 'error');
+  }
+}
+
+// Download meeting minutes PDF
+async function downloadMeetingMinutesPDF(meetingId) {
+  showToast('議事録PDFを生成中...', 'info');
+  
+  try {
+    const sessionToken = localStorage.getItem('session_token');
+    const response = await axios.post('/api/pdf/generate-minutes', {
+      meeting_id: meetingId
+    }, {
+      headers: { 'Authorization': `Bearer ${sessionToken}` },
+      responseType: 'blob'
+    });
+    
+    // Create download link
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meeting_minutes_${meetingId}_${Date.now()}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    showToast('議事録PDFをダウンロードしました', 'success');
+  } catch (error) {
+    console.error('Meeting minutes PDF download error:', error);
+    showToast('議事録PDFダウンロードに失敗しました', 'error');
+  }
+}
+
+// Send thank you email
+async function sendThankYouEmail(meetingId) {
+  showToast('お礼メールを送信中...', 'info');
+  
+  try {
+    const sessionToken = localStorage.getItem('session_token');
+    const response = await axios.post('/api/email/send-thank-you', {
+      meeting_id: meetingId
+    }, {
+      headers: { 'Authorization': `Bearer ${sessionToken}` }
+    });
+    
+    if (response.data.success) {
+      showToast('お礼メールを送信しました', 'success');
+    } else {
+      showToast(response.data.error || 'メール送信に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('Thank you email error:', error);
+    showToast('お礼メール送信に失敗しました', 'error');
+  }
+}
+
+// Send follow-up email
+async function sendFollowUpEmail(meetingId) {
+  showToast('フォローアップメールを送信中...', 'info');
+  
+  try {
+    const sessionToken = localStorage.getItem('session_token');
+    const response = await axios.post('/api/email/send-follow-up', {
+      meeting_id: meetingId
+    }, {
+      headers: { 'Authorization': `Bearer ${sessionToken}` }
+    });
+    
+    if (response.data.success) {
+      showToast('フォローアップメールを送信しました', 'success');
+    } else {
+      showToast(response.data.error || 'メール送信に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('Follow-up email error:', error);
+    showToast('フォローアップメール送信に失敗しました', 'error');
+  }
 }
 
 // 6. Generate follow-up actions (with real AI API)
