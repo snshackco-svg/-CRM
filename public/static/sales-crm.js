@@ -577,6 +577,16 @@ function renderOverviewTab() {
         <p class="text-gray-700 whitespace-pre-wrap">${p.notes}</p>
       </div>
     ` : ''}
+
+    <!-- Tags Section -->
+    <div id="prospect-tags-container" class="mt-6"></div>
+    <script>
+      // Load and render tags for this prospect
+      (async function() {
+        await fetchProspectTags(${p.id});
+        renderTagsSection(${p.id});
+      })();
+    </script>
   `;
 }
 
@@ -6118,6 +6128,9 @@ async function renderDashboardView() {
   
   try {
     const response = await axios.get('/api/sales-crm/dashboard', {
+  // Fetch hot leads
+  await fetchHotLeads();
+
       headers: { 'X-Session-Token': sessionToken }
     });
 
@@ -6272,6 +6285,9 @@ async function renderDashboardView() {
 
       <!-- 下部: KPI達成率 + チーム状況 + アラート -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Hot Leads Widget -->
+        <script>document.write(renderHotLeadsWidget())</script>
+
         <!-- KPI達成率 -->
         <div class="bg-white rounded-xl shadow-md p-6">
           <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
@@ -6714,7 +6730,7 @@ if (document.readyState === 'loading') {
 } else {
   initSalesCRM();
 }
-�ました', 'error');
+�ました', 'error');
     }
   } catch (error) {
     console.error('Failed to generate research:', error);
