@@ -30,17 +30,18 @@ app.get('/', async (c) => {
 });
 
 // Helper function to map appointment status to prospect status
+// Must match prospects table CHECK constraint: 'new', 'researching', 'contacted', 'meeting_scheduled', 'negotiating', 'won', 'lost'
 function getProspectStatus(appointmentStatus: string): string {
   const statusMap: Record<string, string> = {
-    '見込み外': 'not_qualified',
-    '見込み化': 'qualified',
+    '見込み外': 'lost',
+    '見込み化': 'contacted',
     '商談': 'negotiating',
-    '契約': 'contracted',
-    '入金済み': 'paid',
-    '協業候補': 'partnership_candidate',
-    '協業先': 'partnership'
+    '契約': 'won',
+    '入金済み': 'won',
+    '協業候補': 'contacted',
+    '協業先': 'won'
   };
-  return statusMap[appointmentStatus] || 'qualified';
+  return statusMap[appointmentStatus] || 'contacted';
 }
 
 // Helper function to check if status should create prospect
