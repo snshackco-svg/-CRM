@@ -256,42 +256,113 @@ npm run clean-port
 fuser -k 3000/tcp
 ```
 
-### OpenAI API設定 🆕
+### 🔑 API統合設定 🆕
 
-**OpenAI APIを使用する場合の設定手順:**
+このシステムは複数の外部APIと統合されています。以下の手順でAPIキーを設定してください。
 
-1. **APIキーの取得**
-   - https://platform.openai.com/api-keys にアクセス
-   - 新しいAPIキーを作成
+#### 1. OpenAI API（GPT-4o-mini）✅ 設定済み
 
-2. **ローカル開発環境の設定**
-   ```bash
-   # .dev.vars ファイルを編集
-   nano .dev.vars
-   
-   # 以下を追加（your-openai-api-key-here を実際のAPIキーに置き換え）
-   OPENAI_API_KEY=sk-proj-...your-actual-key...
-   OPENAI_MODEL=gpt-4o-mini
-   ```
+**用途:** AI生成全般（トークスクリプト、リサーチ、フォローアップ計画、名刺情報抽出）
 
-3. **本番環境（Cloudflare Pages）の設定**
-   ```bash
-   # Cloudflare Pages Secretsに登録
-   npx wrangler pages secret put OPENAI_API_KEY --project-name sales-crm
-   # プロンプトでAPIキーを入力
-   
-   npx wrangler pages secret put OPENAI_MODEL --project-name sales-crm
-   # プロンプトで "gpt-4o-mini" を入力
-   ```
+**取得方法:**
+1. https://platform.openai.com/api-keys にアクセス
+2. 新しいAPIキーを作成
 
-4. **APIキーが設定されていない場合**
-   - システムは自動的にモックデータにフォールバック
-   - すべての機能が動作し続けます（本物のAI生成なし）
+**設定方法:**
+```bash
+# ローカル環境（.dev.varsファイル）
+OPENAI_API_KEY=sk-proj-...your-actual-key...
+OPENAI_MODEL=gpt-4o-mini
 
-**推奨モデル:**
-- `gpt-4o-mini`: コスト効率重視（推奨）
-- `gpt-4o`: 高品質重視
-- `gpt-4-turbo`: バランス重視
+# 本番環境
+npx wrangler pages secret put OPENAI_API_KEY --project-name sales-crm
+npx wrangler pages secret put OPENAI_MODEL --project-name sales-crm
+```
+
+**料金:** $0.150/1M input tokens, $0.600/1M output tokens（月$5-20程度）
+
+#### 2. Google Cloud Vision API（OCR）✅ 設定済み
+
+**用途:** 名刺スキャン機能（画像からテキスト抽出）
+
+**取得方法:**
+1. https://console.cloud.google.com にアクセス
+2. プロジェクトを作成
+3. Cloud Vision APIを有効化
+4. APIキーを作成
+
+**設定方法:**
+```bash
+# ローカル環境
+GOOGLE_VISION_API_KEY=AIza...your-actual-key...
+
+# 本番環境
+npx wrangler pages secret put GOOGLE_VISION_API_KEY --project-name sales-crm
+```
+
+**料金:** 1,000枚/月無料、超過分 $1.50/1,000枚
+
+#### 3. Resend API（メール送信）⚠️ 推奨
+
+**用途:** お礼メール、フォローアップメール、提案資料メール送信
+
+**取得方法:**
+1. https://resend.com/signup にアクセス（メールアドレスのみで登録可能）
+2. https://resend.com/api-keys でAPIキーを作成
+
+**設定方法:**
+```bash
+# ローカル環境
+RESEND_API_KEY=re_...your-actual-key...
+
+# 本番環境
+npx wrangler pages secret put RESEND_API_KEY --project-name sales-crm
+```
+
+**料金:** 3,000通/月無料、$20/月で50,000通
+
+**送信元メールアドレス設定:**
+- Resendの`onboarding@resend.dev`が無料で使用可能
+- 独自ドメインの場合はDNS設定が必要
+
+#### 4. SendGrid API（メール送信・代替）
+
+**用途:** Resend APIの代替メール送信サービス
+
+**取得方法:**
+1. https://signup.sendgrid.com にアクセス
+2. Sender認証を完了
+3. APIキーを作成
+
+**設定方法:**
+```bash
+# ローカル環境
+SENDGRID_API_KEY=SG....your-actual-key...
+
+# 本番環境
+npx wrangler pages secret put SENDGRID_API_KEY --project-name sales-crm
+```
+
+**料金:** 100通/日無料、$19.95/月で50,000通
+
+#### 📋 現在の設定状況
+
+**ローカル環境を確認:**
+```bash
+cat .dev.vars
+```
+
+**本番環境を確認:**
+```bash
+npx wrangler pages secret list --project-name sales-crm
+```
+
+#### 🔄 フォールバック機能
+
+全てのAPI統合機能は、APIキーが未設定でも動作します：
+- **OpenAI**: モックデータでAI生成を模擬
+- **Google Vision**: モックOCRテキストを返す
+- **Resend/SendGrid**: コンソールにメール内容を出力（実際には送信しない）
 
 ### Git操作
 
@@ -310,11 +381,25 @@ git push origin main
 git log --oneline
 ```
 
+## ✅ 実装済み・使用可能な機能
+
+### API統合機能（実装済み・APIキー設定で本番利用可能）
+- ✅ **OpenAI API統合** - トークスクリプト、リサーチ、フォローアップ計画生成
+- ✅ **Google Cloud Vision API統合** - 名刺スキャン・OCR処理
+- ✅ **Resend API統合** - メール送信機能（SendGridの代替）
+- ✅ **SendGrid API統合** - メール送信機能（Resendのフォールバック）
+- ✅ **pdf-lib統合** - 提案資料PDF・議事録PDF生成
+- ✅ **html2pdf.js統合** - 週報PDF出力
+
+### フロントエンド機能
+- ✅ **PDFダウンロードボタン** - 提案資料、商談議事録
+- ✅ **メール送信ボタン** - お礼メール、フォローアップメール
+- ✅ **週報PDF出力ボタン** - html2pdf.jsで日本語対応
+
 ## まだ実装されていない機能
 
 - カスタムドメインの設定
-- 実際のNotta API統合（現在はモックデータ、APIキー設定で本番利用可能）
-- 実際のSendGrid API統合（実装済み、APIキー設定で本番利用可能）
+- Notta API統合（現在はモックデータで動作中、API取得が必要）
 - リアルタイム通知機能（ブラウザ通知、Slack連携など）
 - 高度なレポート機能（月次レポート、売上予測など）
 
