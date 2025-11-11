@@ -378,14 +378,14 @@ app.post('/kpi-goals', async (c) => {
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).bind(
-        data.appointments_goal,
-        data.qualified_goal,
-        data.negotiations_goal,
-        data.deals_goal,
-        data.customer_unit_price_goal,
-        data.revenue_goal,
-        data.gross_profit_goal,
-        data.new_agencies_goal,
+        data.appointments_goal || 0,
+        data.qualified_goal || 0,
+        data.negotiations_goal || 0,
+        data.deals_goal || 0,
+        data.customer_unit_price_goal || 0,
+        data.revenue_goal || 0,
+        data.gross_profit_goal || 0,
+        data.new_agencies_goal || 0,
         existing.id
       ).run();
 
@@ -404,14 +404,14 @@ app.post('/kpi-goals', async (c) => {
         userId,
         year,
         month,
-        data.appointments_goal,
-        data.qualified_goal,
-        data.negotiations_goal,
-        data.deals_goal,
-        data.customer_unit_price_goal,
-        data.revenue_goal,
-        data.gross_profit_goal,
-        data.new_agencies_goal
+        data.appointments_goal || 0,
+        data.qualified_goal || 0,
+        data.negotiations_goal || 0,
+        data.deals_goal || 0,
+        data.customer_unit_price_goal || 0,
+        data.revenue_goal || 0,
+        data.gross_profit_goal || 0,
+        data.new_agencies_goal || 0
       ).run();
 
       return c.json({
@@ -517,14 +517,14 @@ app.post('/kpi-weekly-goals', async (c) => {
       `).bind(
         data.week_start_date,
         data.week_end_date,
-        data.appointments_goal,
-        data.qualified_goal,
-        data.negotiations_goal,
-        data.deals_goal,
-        data.customer_unit_price_goal,
-        data.revenue_goal,
-        data.gross_profit_goal,
-        data.new_agencies_goal,
+        data.appointments_goal || 0,
+        data.qualified_goal || 0,
+        data.negotiations_goal || 0,
+        data.deals_goal || 0,
+        data.customer_unit_price_goal || 0,
+        data.revenue_goal || 0,
+        data.gross_profit_goal || 0,
+        data.new_agencies_goal || 0,
         existing.id
       ).run();
 
@@ -547,14 +547,14 @@ app.post('/kpi-weekly-goals', async (c) => {
         data.week_number,
         data.week_start_date,
         data.week_end_date,
-        data.appointments_goal,
-        data.qualified_goal,
-        data.negotiations_goal,
-        data.deals_goal,
-        data.customer_unit_price_goal,
-        data.revenue_goal,
-        data.gross_profit_goal,
-        data.new_agencies_goal
+        data.appointments_goal || 0,
+        data.qualified_goal || 0,
+        data.negotiations_goal || 0,
+        data.deals_goal || 0,
+        data.customer_unit_price_goal || 0,
+        data.revenue_goal || 0,
+        data.gross_profit_goal || 0,
+        data.new_agencies_goal || 0
       ).run();
 
       return c.json({
