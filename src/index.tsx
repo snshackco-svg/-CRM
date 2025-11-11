@@ -19,6 +19,7 @@ import aiRoutes from './routes/ai';
 import emailRoutes from './routes/email';
 import pdfRoutes from './routes/pdf';
 import searchRoutes from './routes/search';
+import tagsRoutes from './routes/tags';
 // Nurturing CRM routes (3-layer data model)
 import masterContactsRoutes from './routes/master-contacts';
 import dealsRoutes from './routes/deals';
@@ -48,6 +49,7 @@ app.route('/api/ai', aiRoutes);
 app.route('/api/email', emailRoutes);
 app.route('/api/pdf', pdfRoutes);
 app.route('/api/search', searchRoutes);
+app.route('/api/tags', tagsRoutes);
 // Nurturing CRM routes (3-layer data model)
 app.route('/api/master-contacts', masterContactsRoutes);
 app.route('/api/deals', dealsRoutes);
