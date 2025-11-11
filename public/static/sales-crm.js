@@ -6127,10 +6127,10 @@ async function renderDashboardView() {
   const contentArea = document.getElementById('content-area');
   
   try {
+    // Fetch hot leads
+    await fetchHotLeads();
+    
     const response = await axios.get('/api/sales-crm/dashboard', {
-  // Fetch hot leads
-  await fetchHotLeads();
-
       headers: { 'X-Session-Token': sessionToken }
     });
 
@@ -6283,10 +6283,10 @@ async function renderDashboardView() {
         </div>
       </div>
 
-      <!-- 下部: KPI達成率 + チーム状況 + アラート -->
+      <!-- 下部: ホットリード + KPI達成率 + チーム状況 -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Hot Leads Widget -->
-        <script>document.write(renderHotLeadsWidget())</script>
+        <div id="hot-leads-widget-container"></div>
 
         <!-- KPI達成率 -->
         <div class="bg-white rounded-xl shadow-md p-6">
@@ -6397,6 +6397,12 @@ async function renderDashboardView() {
         </div>
       </div>
     `;
+    
+    // Insert hot leads widget after dashboard is rendered
+    const hotLeadsContainer = document.getElementById('hot-leads-widget-container');
+    if (hotLeadsContainer && hotLeadsData) {
+      hotLeadsContainer.innerHTML = renderHotLeadsWidget();
+    }
   } catch (error) {
     console.error('Dashboard render error:', error);
     contentArea.innerHTML = `
@@ -6717,20 +6723,6 @@ async function generateResearch(prospectId, isDeep = false) {
       }
     } else {
       showToast('リサーチの保存に失敗しました', 'error');
-    }
-  } catch (error) {
-    console.error('Failed to generate research:', error);
-    showToast(isDeep ? 'AIディープリサーチの生成に失敗しました' : 'AI事前リサーチの生成に失敗しました', 'error');
-  }
-}
-
-// Initialize on page load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initSalesCRM);
-} else {
-  initSalesCRM();
-}
-�ました', 'error');
     }
   } catch (error) {
     console.error('Failed to generate research:', error);

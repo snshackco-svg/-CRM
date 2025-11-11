@@ -32,7 +32,7 @@ app.get('/', async (c) => {
     const { results: prospects } = await DB.prepare(`
       SELECT 
         id, company_name, contact_name, contact_position, industry, status, 
-        estimated_value, next_meeting_date, is_partnership,
+        estimated_value, is_partnership,
         'prospect' as result_type
       FROM prospects
       WHERE sales_id = ?
