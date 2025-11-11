@@ -195,7 +195,11 @@ app.post('/:id/process-ocr', async (c) => {
 
     return c.json({ 
       success: true, 
-      data: extractedData,
+      data: {
+        ...extractedData,
+        raw_ocr_text: ocrText,  // OCRの生テキストも含める
+        ocr_confidence: ocrConfidence
+      },
       message: 'OCR processing completed'
     });
   } catch (error: any) {
@@ -431,31 +435,72 @@ async function extractBusinessCardInfo(ocrText: string, env: any): Promise<any> 
         messages: [
           {
             role: 'system',
-            content: `あなたは名刺情報を抽出する専門家です。OCRで読み取られた名刺のテキストから、構造化された情報を抽出してJSON形式で返してください。
+            content: `あなたは日本の名刺情報を抽出する専門家です。OCRで読み取られた名刺のテキストから、正確に構造化された情報を抽出してJSON形式で返してください。
 
-必須フィールド:
-- name: 人名（日本語または英語）
-- company_name: 会社名
-- title: 役職
-- department: 部署名
-- phone: 固定電話番号
-- mobile: 携帯電話番号
-- email: メールアドレス
-- website: ウェブサイトURL
-- address: 住所
+【重要な抽出ルール】
+1. **名前（name）**:
+   - 日本語の姓名を正確に抽出（例: "山田 太郎"）
+   - 英語表記があればそれも参考にする
+   - 「代表取締役」「CEO」などの役職は含めない
 
-情報が見つからない場合はnullを返してください。`,
+2. **会社名（company_name）**:
+   - 正式な会社名を抽出（例: "株式会社○○"、"○○株式会社"）
+   - 英語表記も参考にする
+
+3. **役職（title）**:
+   - 正確な役職名を抽出（例: "代表取締役", "営業部長", "CEO"）
+   - 部署名は含めない
+
+4. **部署名（department）**:
+   - 部署名のみを抽出（例: "営業部", "開発部"）
+
+5. **電話番号**:
+   - phone: 固定電話（例: "03-1234-5678"）
+   - mobile: 携帯電話（例: "090-1234-5678"）
+   - TEL/Mobile/携帯などのラベルは除外
+
+6. **メールアドレス（email）**:
+   - 完全なメールアドレスを抽出（例: "taro@example.com"）
+
+7. **ウェブサイト（website）**:
+   - URLを抽出（例: "https://example.com"）
+   - httpがなければ追加しない
+
+8. **住所（address）**:
+   - 郵便番号を含む完全な住所を抽出
+   - 例: "〒100-0001 東京都千代田区千代田1-1-1"
+
+【出力形式】
+必ず以下のJSON形式で返してください:
+{
+  "name": "人名",
+  "company_name": "会社名",
+  "title": "役職",
+  "department": "部署名",
+  "phone": "固定電話",
+  "mobile": "携帯電話",
+  "email": "メールアドレス",
+  "website": "ウェブサイト",
+  "address": "住所"
+}
+
+情報が見つからない場合はnullを返してください。推測や創作は絶対にしないでください。`,
           },
           {
             role: 'user',
-            content: `以下の名刺OCRテキストから情報を抽出してください:\n\n${ocrText}`,
+            content: `以下の名刺OCRテキストから情報を正確に抽出してください:\n\n${ocrText}`,
           },
         ],
-        temperature: 0.3,
+        temperature: 0.1,  // より正確な抽出のため低めに設定
         response_format: { type: 'json_object' },
       });
 
       const extracted = JSON.parse(response.choices[0]?.message?.content || '{}');
+      
+      // デバッグ用にコンソール出力
+      console.log('OCR Text:', ocrText);
+      console.log('Extracted Data:', extracted);
+      
       return extracted;
     } catch (error) {
       console.error('OpenAI extraction error:', error);

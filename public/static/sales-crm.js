@@ -3364,7 +3364,7 @@ async function uploadBusinessCard() {
 
 async function processBusinessCardOCR(cardId) {
   try {
-    showToast('AI OCR処理中...', 'info');
+    showToast('AI OCR処理中...（Google Vision + OpenAI）', 'info');
     
     const response = await axios.post(`/api/business-cards/${cardId}/process-ocr`, {}, {
       headers: { 'X-Session-Token': sessionToken }
@@ -3372,9 +3372,14 @@ async function processBusinessCardOCR(cardId) {
     
     if (response.data.success) {
       showToast('情報を抽出しました', 'success');
+      
+      // OCR処理後に詳細を表示
+      await loadBusinessCards();
+      await viewBusinessCard(cardId);
     }
   } catch (error) {
     console.error('Process OCR error:', error);
+    console.error('Error details:', error.response?.data);
     showToast('OCR処理に失敗しました', 'error');
   }
 }
