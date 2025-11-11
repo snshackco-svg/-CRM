@@ -343,7 +343,7 @@ async function performGoogleVisionOCR(imageDataUrl: string, apiKey: string): Pro
   }
   const base64Content = base64Match[1];
 
-  // Call Google Cloud Vision API
+  // Call Google Cloud Vision API with enhanced settings
   const response = await fetch(
     `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
     {
@@ -359,10 +359,13 @@ async function performGoogleVisionOCR(imageDataUrl: string, apiKey: string): Pro
             },
             features: [
               {
-                type: 'TEXT_DETECTION',
+                type: 'DOCUMENT_TEXT_DETECTION',  // より精度の高いDOCUMENT_TEXT_DETECTIONを使用
                 maxResults: 1,
               },
             ],
+            imageContext: {
+              languageHints: ['ja', 'en'],  // 日本語と英語を明示
+            },
           },
         ],
       }),
@@ -438,40 +441,16 @@ async function extractBusinessCardInfo(ocrText: string, env: any): Promise<any> 
             content: `あなたは日本の名刺情報を抽出する専門家です。OCRで読み取られた名刺のテキストから、正確に構造化された情報を抽出してJSON形式で返してください。
 
 【重要な抽出ルール】
-1. **名前（name）**:
-   - 日本語の姓名を正確に抽出（例: "山田 太郎"）
-   - 英語表記があればそれも参考にする
-   - 「代表取締役」「CEO」などの役職は含めない
-
-2. **会社名（company_name）**:
-   - 正式な会社名を抽出（例: "株式会社○○"、"○○株式会社"）
-   - 英語表記も参考にする
-
-3. **役職（title）**:
-   - 正確な役職名を抽出（例: "代表取締役", "営業部長", "CEO"）
-   - 部署名は含めない
-
-4. **部署名（department）**:
-   - 部署名のみを抽出（例: "営業部", "開発部"）
-
-5. **電話番号**:
-   - phone: 固定電話（例: "03-1234-5678"）
-   - mobile: 携帯電話（例: "090-1234-5678"）
-   - TEL/Mobile/携帯などのラベルは除外
-
-6. **メールアドレス（email）**:
-   - 完全なメールアドレスを抽出（例: "taro@example.com"）
-
-7. **ウェブサイト（website）**:
-   - URLを抽出（例: "https://example.com"）
-   - httpがなければ追加しない
-
-8. **住所（address）**:
-   - 郵便番号を含む完全な住所を抽出
-   - 例: "〒100-0001 東京都千代田区千代田1-1-1"
+1. **名前（name）**: 日本語の姓名を正確に抽出。英語は参考程度。役職は含めない。
+2. **会社名（company_name）**: 正式な会社名（株式会社○○、○○株式会社など）
+3. **役職（title）**: 役職名のみ（代表取締役、営業部長など）。部署名は含めない。
+4. **部署名（department）**: 部署名のみ（営業部、開発部など）
+5. **電話番号**: phone=固定電話、mobile=携帯電話。ラベル除外。
+6. **メールアドレス（email）**: 完全なメールアドレス
+7. **ウェブサイト（website）**: URL
+8. **住所（address）**: 郵便番号を含む完全な住所
 
 【出力形式】
-必ず以下のJSON形式で返してください:
 {
   "name": "人名",
   "company_name": "会社名",
@@ -488,18 +467,125 @@ async function extractBusinessCardInfo(ocrText: string, env: any): Promise<any> 
           },
           {
             role: 'user',
+            content: `山田 太郎
+Taro Yamada
+代表取締役社長
+株式会社テックイノベーション
+Tech Innovation Inc.
+営業部
+〒100-0001 東京都千代田区千代田1-1-1
+TEL: 03-1234-5678
+Mobile: 090-1234-5678
+Email: t.yamada@tech-innovation.co.jp
+https://www.tech-innovation.co.jp`,
+          },
+          {
+            role: 'assistant',
+            content: `{
+  "name": "山田 太郎",
+  "company_name": "株式会社テックイノベーション",
+  "title": "代表取締役社長",
+  "department": "営業部",
+  "phone": "03-1234-5678",
+  "mobile": "090-1234-5678",
+  "email": "t.yamada@tech-innovation.co.jp",
+  "website": "https://www.tech-innovation.co.jp",
+  "address": "〒100-0001 東京都千代田区千代田1-1-1"
+}`,
+          },
+          {
+            role: 'user',
+            content: `佐藤 花子
+Hanako Sato
+Senior Product Manager
+製品開発部 部長
+アクメ株式会社
+ACME Corporation
+〒150-0002
+東京都渋谷区渋谷2-2-2
+Tel: 03-9876-5432
+Mob: 080-9876-5432
+h.sato@acme.co.jp
+www.acme.co.jp`,
+          },
+          {
+            role: 'assistant',
+            content: `{
+  "name": "佐藤 花子",
+  "company_name": "アクメ株式会社",
+  "title": "部長",
+  "department": "製品開発部",
+  "phone": "03-9876-5432",
+  "mobile": "080-9876-5432",
+  "email": "h.sato@acme.co.jp",
+  "website": "www.acme.co.jp",
+  "address": "〒150-0002 東京都渋谷区渋谷2-2-2"
+}`,
+          },
+          {
+            role: 'user',
             content: `以下の名刺OCRテキストから情報を正確に抽出してください:\n\n${ocrText}`,
           },
         ],
-        temperature: 0.1,  // より正確な抽出のため低めに設定
+        temperature: 0.05,  // さらに低く設定
         response_format: { type: 'json_object' },
       });
 
-      const extracted = JSON.parse(response.choices[0]?.message?.content || '{}');
+      let extracted = JSON.parse(response.choices[0]?.message?.content || '{}');
+      
+      // 信頼度スコアを計算
+      const confidenceScore = calculateConfidenceScore(extracted, ocrText);
+      
+      // 信頼度が低い場合（50%未満）、再試行
+      if (confidenceScore < 0.5) {
+        console.log('Low confidence score:', confidenceScore, 'Retrying...');
+        
+        const retryResponse = await openai.chat.completions.create({
+          model: env.OPENAI_MODEL || 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `あなたは日本の名刺情報を抽出する専門家です。以下のルールに厳密に従ってください:
+              
+1. nameは必ず日本語の姓名（例: "山田 太郎"）
+2. company_nameは会社の正式名称
+3. titleは役職のみ
+4. 情報がない場合はnullを返す
+5. 絶対に推測や創作をしない`,
+            },
+            {
+              role: 'user',
+              content: `以下のOCRテキストから名刺情報を抽出してください。特に「名前」と「会社名」を正確に:\n\n${ocrText}`,
+            },
+          ],
+          temperature: 0.0,  // 完全に決定的に
+          response_format: { type: 'json_object' },
+        });
+        
+        const retryExtracted = JSON.parse(retryResponse.choices[0]?.message?.content || '{}');
+        const retryScore = calculateConfidenceScore(retryExtracted, ocrText);
+        
+        // より高いスコアの方を採用
+        if (retryScore > confidenceScore) {
+          console.log('Retry improved score:', retryScore);
+          extracted = retryExtracted;
+        }
+      }
+      
+      // 名前のバリデーション
+      if (extracted.name) {
+        extracted.name = validateAndCleanName(extracted.name);
+      }
+      
+      // 会社名のバリデーション
+      if (extracted.company_name) {
+        extracted.company_name = validateAndCleanCompanyName(extracted.company_name);
+      }
       
       // デバッグ用にコンソール出力
       console.log('OCR Text:', ocrText);
       console.log('Extracted Data:', extracted);
+      console.log('Confidence Score:', confidenceScore);
       
       return extracted;
     } catch (error) {
@@ -511,6 +597,95 @@ async function extractBusinessCardInfo(ocrText: string, env: any): Promise<any> 
     // No OpenAI API key - use regex extraction
     return regexExtractBusinessCardInfo(ocrText);
   }
+}
+
+// Validate and clean name
+function validateAndCleanName(name: string): string {
+  if (!name) return name;
+  
+  // Remove common titles that shouldn't be in name
+  const titlePatterns = [
+    /^(代表取締役|取締役|社長|CEO|CTO|CFO|部長|課長|主任|係長|マネージャー|Manager|Director|President)\s*/,
+    /\s*(代表取締役|取締役|社長|CEO|CTO|CFO|部長|課長|主任|係長|マネージャー|Manager|Director|President)$/,
+  ];
+  
+  let cleaned = name;
+  for (const pattern of titlePatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  
+  // Remove extra spaces
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  // If the name is too short or too long, return original
+  if (cleaned.length < 2 || cleaned.length > 20) {
+    return name;
+  }
+  
+  // Check if it contains Japanese characters
+  if (!/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]/.test(cleaned)) {
+    // If no Japanese, it might be English name - keep it
+    return cleaned;
+  }
+  
+  return cleaned;
+}
+
+// Validate and clean company name
+function validateAndCleanCompanyName(companyName: string): string {
+  if (!companyName) return companyName;
+  
+  // Remove department names that shouldn't be in company name
+  const departmentPatterns = [
+    /\s*(営業部|開発部|技術部|総務部|人事部|経理部|企画部|マーケティング部|Sales|Development|Engineering).*$/,
+  ];
+  
+  let cleaned = companyName;
+  for (const pattern of departmentPatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  
+  // Remove extra spaces
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
+}
+
+// Calculate confidence score for extracted data
+function calculateConfidenceScore(extracted: any, ocrText: string): number {
+  let score = 0;
+  let maxScore = 0;
+  
+  // Check each field
+  const fields = [
+    { key: 'name', weight: 3, validator: (v: string) => v && v.length > 1 && v.length < 20 && /[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]/.test(v) },
+    { key: 'company_name', weight: 3, validator: (v: string) => v && v.length > 1 && (v.includes('株式会社') || v.includes('会社') || v.includes('Corporation')) },
+    { key: 'title', weight: 2, validator: (v: string) => v && v.length > 1 && v.length < 20 },
+    { key: 'department', weight: 1, validator: (v: string) => v && v.length > 1 },
+    { key: 'phone', weight: 2, validator: (v: string) => v && /\d{2,4}-\d{2,4}-\d{4}/.test(v) },
+    { key: 'mobile', weight: 2, validator: (v: string) => v && /0[789]0-\d{4}-\d{4}/.test(v) },
+    { key: 'email', weight: 2, validator: (v: string) => v && /[\w\.-]+@[\w\.-]+\.\w+/.test(v) },
+    { key: 'website', weight: 1, validator: (v: string) => v && (v.includes('http') || v.includes('www') || v.includes('.co.jp') || v.includes('.com')) },
+    { key: 'address', weight: 1, validator: (v: string) => v && v.length > 5 && (v.includes('〒') || v.includes('東京') || v.includes('大阪') || /[都道府県]/.test(v)) },
+  ];
+  
+  for (const field of fields) {
+    maxScore += field.weight;
+    const value = extracted[field.key];
+    
+    if (value && value !== null) {
+      // Check if value exists in OCR text
+      const valueInText = ocrText.includes(value) || ocrText.includes(value.replace(/\s/g, ''));
+      
+      if (valueInText && field.validator(value)) {
+        score += field.weight;
+      } else if (field.validator(value)) {
+        score += field.weight * 0.5; // Partial credit
+      }
+    }
+  }
+  
+  return score / maxScore;
 }
 
 // Fallback regex-based extraction
