@@ -29,7 +29,15 @@
   - 商談中だが3日以上動きなし
   - 高額案件（100万円以上）で進展なし
   - 優先度スコアによる自動ソート
-  - ダッシュボードに表示準備完了
+  - ダッシュボードにウィジェット統合済み
+
+### 🏷️ 新機能: タグ管理機能 🆕
+- ✅ **柔軟なタグシステム**
+  - 見込み客ごとに複数のタグを付与可能
+  - タグのオートコンプリート機能（既存タグ候補を表示）
+  - 案件詳細画面でタグ追加・削除が可能
+  - タグによる見込み客の分類・整理
+  - 各タグの使用数カウント表示
 
 ### 営業CRM機能
 - ✅ **リアルタイムダッシュボード**
@@ -124,6 +132,12 @@
 **ホットリードAPI:** 🆕
 - `GET /api/sales-crm/dashboard/hot-leads` - 優先対応が必要な見込み客を自動抽出
 
+**タグ管理API:** 🆕
+- `GET /api/tags/prospect/:prospectId` - 特定案件のタグ一覧取得
+- `POST /api/tags/prospect/:prospectId` - 案件にタグ追加（body: `{tag: "タグ名"}`）
+- `DELETE /api/tags/prospect/:prospectId/:tag` - 案件からタグ削除
+- `GET /api/tags/all` - 全タグ一覧取得（使用数カウント付き）
+
 **AI統合API:** 🆕
 - `GET /api/notta-analyses` - Notta分析結果一覧取得
 - `POST /api/ai/generate-talk-script` - トークスクリプト生成
@@ -158,8 +172,9 @@
 7. **networking_connections** - 人脈管理
 8. **referrals** - 紹介者管理
 9. **business_card_scans** - 名刺スキャン
-10. **new_appointments** - 新規アポイント
+10. **new_appointments** - 新規アポイント（meeting_id連携対応 🆕）
 11. **weekly_reports** - 週報
+12. **prospect_tags** - 見込み客タグ管理 🆕
 
 ### パイプライン段階
 1. 初回コンタクト
@@ -452,6 +467,7 @@ git log --oneline
 - **本番環境**: ✅ デプロイ済み (https://227683d1.sales-crm.pages.dev)
 - **プロジェクト名**: sales-crm
 - **最終更新**: 2025-11-11
+- **最新機能**: グローバル検索、ホットリード、タグ管理（UI実装完了）
 
 ## トラブルシューティング
 
