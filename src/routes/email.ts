@@ -351,66 +351,93 @@ async function sendEmail(params: {
   html: string;
   text: string;
 }, env?: any): Promise<boolean> {
-  // Check if SendGrid API key is configured
-  if (!env?.SENDGRID_API_KEY || env.SENDGRID_API_KEY === 'your-sendgrid-api-key-here') {
-    console.warn('SendGrid API key not configured, simulating email send');
-    console.log('Email preview:', {
-      to: params.to,
-      from: params.from,
-      subject: params.subject,
-      html_length: params.html.length,
-      text_length: params.text.length
-    });
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return true;
+  // Priority 1: Try Resend API (recommended)
+  if (env?.RESEND_API_KEY && env.RESEND_API_KEY !== 'your-resend-api-key-here') {
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: params.from,
+          to: [params.to],
+          subject: params.subject,
+          html: params.html,
+          text: params.text
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Resend API error:', response.status, errorData);
+        throw new Error(`Resend API error: ${response.status}`);
+      }
+      
+      console.log('Email sent successfully via Resend');
+      return true;
+    } catch (error) {
+      console.error('Failed to send email via Resend:', error);
+      // Continue to try SendGrid
+    }
   }
   
-  try {
-    // SendGrid API v3 - using Fetch API (compatible with Cloudflare Workers)
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: params.to }],
-          subject: params.subject
-        }],
-        from: { email: params.from },
-        content: [
-          {
-            type: 'text/plain',
-            value: params.text
-          },
-          {
-            type: 'text/html',
-            value: params.html
-          }
-        ]
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('SendGrid API error:', response.status, errorText);
-      throw new Error(`SendGrid API error: ${response.status}`);
+  // Priority 2: Try SendGrid API (fallback)
+  if (env?.SENDGRID_API_KEY && env.SENDGRID_API_KEY !== 'your-sendgrid-api-key-here') {
+    try {
+      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{
+            to: [{ email: params.to }],
+            subject: params.subject
+          }],
+          from: { email: params.from },
+          content: [
+            {
+              type: 'text/plain',
+              value: params.text
+            },
+            {
+              type: 'text/html',
+              value: params.html
+            }
+          ]
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('SendGrid API error:', response.status, errorText);
+        throw new Error(`SendGrid API error: ${response.status}`);
+      }
+      
+      console.log('Email sent successfully via SendGrid');
+      return true;
+    } catch (error) {
+      console.error('Failed to send email via SendGrid:', error);
+      // Continue to mock
     }
-    
-    console.log('Email sent successfully via SendGrid');
-    return true;
-  } catch (error) {
-    console.error('Failed to send email via SendGrid, falling back to mock:', error);
-    // Fallback to mock
-    console.log('Email preview (fallback):', {
-      to: params.to,
-      from: params.from,
-      subject: params.subject
-    });
-    return true;
   }
+  
+  // Priority 3: Mock/Simulation (no API key configured)
+  console.warn('No email API key configured (Resend/SendGrid), simulating email send');
+  console.log('Email preview:', {
+    to: params.to,
+    from: params.from,
+    subject: params.subject,
+    html_length: params.html.length,
+    text_length: params.text.length
+  });
+  
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return true;
 }
 
 export default app;

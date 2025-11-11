@@ -8,6 +8,7 @@ export type Bindings = {
   DB: D1Database;
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
+  RESEND_API_KEY?: string;
   SENDGRID_API_KEY?: string;
   GOOGLE_VISION_API_KEY?: string;
 }
