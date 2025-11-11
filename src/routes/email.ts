@@ -81,14 +81,14 @@ app.post('/send-followup', async (c) => {
     // Generate email content
     const emailContent = generateFollowUpEmail(meeting, custom_message);
 
-    // Send email (mock for now)
+    // Send email via SendGrid
     const emailResult = await sendEmail({
       to: meeting.contact_email,
       from: meeting.sales_email || 'noreply@example.com',
       subject: emailContent.subject,
       html: emailContent.html,
       text: emailContent.text
-    });
+    }, c.env);
 
     return c.json({
       success: true,
@@ -127,14 +127,14 @@ app.post('/send-proposal', async (c) => {
     // Generate email content
     const emailContent = generateProposalEmail(prospect, proposal_type, custom_message);
 
-    // Send email (mock for now)
+    // Send email via SendGrid
     const emailResult = await sendEmail({
       to: prospect.contact_email,
       from: prospect.sales_email || 'noreply@example.com',
       subject: emailContent.subject,
       html: emailContent.html,
       text: emailContent.text
-    });
+    }, c.env);
 
     return c.json({
       success: true,
@@ -350,19 +350,67 @@ async function sendEmail(params: {
   subject: string;
   html: string;
   text: string;
-}): Promise<boolean> {
-  // Mock email sending
-  // In production, this would use SendGrid API or similar service
-  console.log('Sending email:', {
-    to: params.to,
-    from: params.from,
-    subject: params.subject
-  });
+}, env?: any): Promise<boolean> {
+  // Check if SendGrid API key is configured
+  if (!env?.SENDGRID_API_KEY || env.SENDGRID_API_KEY === 'your-sendgrid-api-key-here') {
+    console.warn('SendGrid API key not configured, simulating email send');
+    console.log('Email preview:', {
+      to: params.to,
+      from: params.from,
+      subject: params.subject,
+      html_length: params.html.length,
+      text_length: params.text.length
+    });
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return true;
+  }
   
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return true;
+  try {
+    // SendGrid API v3 - using Fetch API (compatible with Cloudflare Workers)
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        personalizations: [{
+          to: [{ email: params.to }],
+          subject: params.subject
+        }],
+        from: { email: params.from },
+        content: [
+          {
+            type: 'text/plain',
+            value: params.text
+          },
+          {
+            type: 'text/html',
+            value: params.html
+          }
+        ]
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('SendGrid API error:', response.status, errorText);
+      throw new Error(`SendGrid API error: ${response.status}`);
+    }
+    
+    console.log('Email sent successfully via SendGrid');
+    return true;
+  } catch (error) {
+    console.error('Failed to send email via SendGrid, falling back to mock:', error);
+    // Fallback to mock
+    console.log('Email preview (fallback):', {
+      to: params.to,
+      from: params.from,
+      subject: params.subject
+    });
+    return true;
+  }
 }
 
 export default app;

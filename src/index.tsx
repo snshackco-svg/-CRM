@@ -17,6 +17,7 @@ import salesCrmTasksRoutes from './routes/sales-crm-tasks';
 import nottaRoutes from './routes/notta';
 import aiRoutes from './routes/ai';
 import emailRoutes from './routes/email';
+import pdfRoutes from './routes/pdf';
 // Nurturing CRM routes (3-layer data model)
 import masterContactsRoutes from './routes/master-contacts';
 import dealsRoutes from './routes/deals';
@@ -44,6 +45,7 @@ app.route('/api/sales-crm/tasks', salesCrmTasksRoutes);
 app.route('/api/notta-analyses', nottaRoutes);
 app.route('/api/ai', aiRoutes);
 app.route('/api/email', emailRoutes);
+app.route('/api/pdf', pdfRoutes);
 // Nurturing CRM routes (3-layer data model)
 app.route('/api/master-contacts', masterContactsRoutes);
 app.route('/api/deals', dealsRoutes);

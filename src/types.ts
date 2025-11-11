@@ -8,6 +8,7 @@ export type Bindings = {
   DB: D1Database;
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
+  SENDGRID_API_KEY?: string;
 }
 
 export type Variables = {
