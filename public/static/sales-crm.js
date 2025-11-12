@@ -22,6 +22,13 @@ async function initSalesCRM() {
   if (!checkAuth()) return;
   
   renderLayout();
+  
+  // Inject search bar HTML
+  const searchContainer = document.getElementById('global-search-container');
+  if (searchContainer && typeof renderSearchBar === 'function') {
+    searchContainer.innerHTML = renderSearchBar();
+  }
+  
   await loadProspects();
   await loadConnections();
   await loadBusinessCards();
@@ -52,8 +59,8 @@ function renderLayout() {
       </div>
 
       <!-- Global Search Bar -->
-      <div class="mb-6 flex justify-center">
-        <script>document.write(renderSearchBar())</script>
+      <div id="global-search-container" class="mb-6">
+        <!-- Search bar will be injected here -->
       </div>
 
       <!-- Navigation Tabs -->

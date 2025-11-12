@@ -137,4 +137,144 @@ app.get('/', async (c) => {
   }
 });
 
+// Advanced search with filters for Sales CRM
+app.get('/sales-crm', async (c) => {
+  try {
+    const userId = c.get('user')?.id;
+    const { DB } = c.env;
+    
+    // Get query parameters
+    const keyword = c.req.query('q') || '';
+    const statuses = c.req.query('statuses')?.split(',').filter(Boolean) || [];
+    const priorities = c.req.query('priorities')?.split(',').filter(Boolean) || [];
+    const amountMin = c.req.query('amount_min');
+    const amountMax = c.req.query('amount_max');
+    const dateStart = c.req.query('date_start');
+    const dateEnd = c.req.query('date_end');
+    const tags = c.req.query('tags');
+    
+    // Build WHERE clauses
+    const conditions: string[] = ['d.owner_id = ?'];
+    const bindings: any[] = [userId];
+    
+    // Keyword search (fuzzy matching)
+    if (keyword.trim().length > 0) {
+      const searchPattern = `%${keyword.trim()}%`;
+      conditions.push(`(
+        d.company_name LIKE ? OR
+        mc.name LIKE ? OR
+        mc.company_name LIKE ? OR
+        mc.industry LIKE ? OR
+        mc.tags LIKE ? OR
+        d.notes LIKE ? OR
+        d.custom_fields LIKE ?
+      )`);
+      bindings.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+    
+    // Status filter
+    if (statuses.length > 0) {
+      const statusPlaceholders = statuses.map(() => '?').join(',');
+      conditions.push(`d.stage IN (${statusPlaceholders})`);
+      bindings.push(...statuses);
+    }
+    
+    // Priority filter
+    if (priorities.length > 0) {
+      const priorityPlaceholders = priorities.map(() => '?').join(',');
+      conditions.push(`d.priority IN (${priorityPlaceholders})`);
+      bindings.push(...priorities);
+    }
+    
+    // Amount range filter
+    if (amountMin) {
+      conditions.push('d.estimated_value >= ?');
+      bindings.push(parseFloat(amountMin));
+    }
+    if (amountMax) {
+      conditions.push('d.estimated_value <= ?');
+      bindings.push(parseFloat(amountMax));
+    }
+    
+    // Date range filter
+    if (dateStart) {
+      conditions.push('DATE(d.updated_at) >= ?');
+      bindings.push(dateStart);
+    }
+    if (dateEnd) {
+      conditions.push('DATE(d.updated_at) <= ?');
+      bindings.push(dateEnd);
+    }
+    
+    // Tags filter (using custom_fields as JSON search)
+    if (tags && tags.trim().length > 0) {
+      const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
+      if (tagList.length > 0) {
+        const tagConditions = tagList.map(() => 'd.custom_fields LIKE ?').join(' OR ');
+        conditions.push(`(${tagConditions})`);
+        tagList.forEach(tag => bindings.push(`%${tag}%`));
+      }
+    }
+    
+    // Build final query
+    const whereClause = conditions.join(' AND ');
+    const query = `
+      SELECT 
+        d.*,
+        mc.name as contact_person,
+        (
+          SELECT COUNT(*) 
+          FROM interactions i 
+          WHERE i.deal_id = d.id
+        ) as interaction_count,
+        (
+          SELECT MAX(i.interaction_date) 
+          FROM interactions i 
+          WHERE i.deal_id = d.id
+        ) as last_interaction_date
+      FROM deals d
+      LEFT JOIN master_contacts mc ON d.master_contact_id = mc.id
+      WHERE ${whereClause}
+      ORDER BY 
+        CASE 
+          WHEN d.company_name LIKE ? THEN 1
+          WHEN mc.name LIKE ? THEN 2
+          ELSE 3
+        END,
+        d.updated_at DESC
+      LIMIT 100
+    `;
+    
+    // Add keyword pattern for ORDER BY if keyword exists
+    if (keyword.trim().length > 0) {
+      const keywordPattern = `%${keyword.trim()}%`;
+      bindings.push(keywordPattern, keywordPattern);
+    } else {
+      bindings.push('', '');
+    }
+    
+    const { results } = await DB.prepare(query).bind(...bindings).all();
+    
+    return c.json({
+      success: true,
+      query: keyword,
+      filters: {
+        statuses,
+        priorities,
+        amountMin,
+        amountMax,
+        dateStart,
+        dateEnd,
+        tags
+      },
+      results: results || [],
+      total: results?.length || 0
+    });
+    
+  } catch (error: any) {
+    console.error('Advanced search error:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 export default app;
