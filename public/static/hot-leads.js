@@ -2,6 +2,62 @@
 
 let hotLeadsData = null;
 
+// Generate suggested action based on hot lead reason and data
+function getSuggestedAction(lead) {
+  const daysSinceUpdate = Math.floor((new Date() - new Date(lead.updated_at)) / (1000 * 60 * 60 * 24));
+  
+  if (lead.hot_lead_reason === 'upcoming_meeting') {
+    return {
+      priority: 'high',
+      action: '今日中に商談準備を完了',
+      icon: 'calendar-check',
+      color: 'blue'
+    };
+  }
+  
+  if (lead.hot_lead_reason === 'needs_follow_up') {
+    if (daysSinceUpdate >= 14) {
+      return {
+        priority: 'urgent',
+        action: '今すぐ電話でフォロー',
+        icon: 'phone',
+        color: 'red'
+      };
+    }
+    return {
+      priority: 'high',
+      action: '今日中にメールでフォロー',
+      icon: 'envelope',
+      color: 'orange'
+    };
+  }
+  
+  if (lead.hot_lead_reason === 'high_value_stalled') {
+    return {
+      priority: 'urgent',
+      action: '決裁者に直接アプローチ',
+      icon: 'user-tie',
+      color: 'purple'
+    };
+  }
+  
+  if (lead.hot_lead_reason === 'stalled_negotiation') {
+    return {
+      priority: 'high',
+      action: '提案内容を見直して再提示',
+      icon: 'sync',
+      color: 'yellow'
+    };
+  }
+  
+  return {
+    priority: 'medium',
+    action: 'ステータス確認',
+    icon: 'clipboard-check',
+    color: 'gray'
+  };
+}
+
 // Fetch hot leads from API
 async function fetchHotLeads() {
   try {
@@ -96,10 +152,27 @@ function renderHotLeadsWidget() {
                 <p class="text-sm text-gray-600 mb-2">
                   ${lead.contact_name || '担当者未登録'}
                 </p>
-                <p class="text-xs text-gray-500">
+                <p class="text-xs text-gray-500 mb-2">
                   <i class="fas fa-exclamation-circle mr-1 text-orange-500"></i>
                   ${lead.reason_text}
                 </p>
+                ${(() => {
+                  const action = getSuggestedAction(lead);
+                  const bgColor = {
+                    red: 'bg-red-100 text-red-700',
+                    orange: 'bg-orange-100 text-orange-700',
+                    yellow: 'bg-yellow-100 text-yellow-700',
+                    blue: 'bg-blue-100 text-blue-700',
+                    purple: 'bg-purple-100 text-purple-700',
+                    gray: 'bg-gray-100 text-gray-700'
+                  }[action.color];
+                  return `
+                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${bgColor}">
+                      <i class="fas fa-${action.icon}"></i>
+                      <span>${action.action}</span>
+                    </div>
+                  `;
+                })()}
               </div>
               <div class="text-right">
                 ${lead.estimated_value ? `

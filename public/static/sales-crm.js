@@ -6283,6 +6283,35 @@ async function renderDashboardView() {
         </div>
       </div>
 
+      <!-- トレンドグラフ -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- 週次トレンド -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center justify-between">
+            <span><i class="fas fa-chart-line mr-2 text-blue-600"></i>週次トレンド（過去4週間）</span>
+            <select id="weekly-trend-metric" class="text-sm border rounded px-2 py-1" onchange="updateWeeklyTrendChart()">
+              <option value="revenue">売上</option>
+              <option value="deals">成約数</option>
+              <option value="appointments">アポ数</option>
+            </select>
+          </h3>
+          <canvas id="weekly-trend-chart" height="80"></canvas>
+        </div>
+        
+        <!-- 月次トレンド -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center justify-between">
+            <span><i class="fas fa-chart-area mr-2 text-green-600"></i>月次トレンド（過去6ヶ月）</span>
+            <select id="monthly-trend-metric" class="text-sm border rounded px-2 py-1" onchange="updateMonthlyTrendChart()">
+              <option value="revenue">売上</option>
+              <option value="deals">成約数</option>
+              <option value="appointments">アポ数</option>
+            </select>
+          </h3>
+          <canvas id="monthly-trend-chart" height="80"></canvas>
+        </div>
+      </div>
+
       <!-- 下部: ホットリード + KPI達成率 + チーム状況 -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Hot Leads Widget -->
@@ -6402,6 +6431,12 @@ async function renderDashboardView() {
     const hotLeadsContainer = document.getElementById('hot-leads-widget-container');
     if (hotLeadsContainer && hotLeadsData) {
       hotLeadsContainer.innerHTML = renderHotLeadsWidget();
+    }
+    
+    // Draw trend charts
+    if (response.data.data.trends) {
+      drawWeeklyTrendChart(response.data.data.trends.weekly);
+      drawMonthlyTrendChart(response.data.data.trends.monthly);
     }
   } catch (error) {
     console.error('Dashboard render error:', error);
@@ -6727,6 +6762,132 @@ async function generateResearch(prospectId, isDeep = false) {
   } catch (error) {
     console.error('Failed to generate research:', error);
     showToast(isDeep ? 'AIディープリサーチの生成に失敗しました' : 'AI事前リサーチの生成に失敗しました', 'error');
+  }
+}
+
+// ==================== TREND CHARTS ====================
+
+let weeklyTrendData = null;
+let monthlyTrendData = null;
+let weeklyChart = null;
+let monthlyChart = null;
+
+function drawWeeklyTrendChart(data) {
+  weeklyTrendData = data;
+  const ctx = document.getElementById('weekly-trend-chart');
+  if (!ctx) return;
+  
+  const metric = document.getElementById('weekly-trend-metric')?.value || 'revenue';
+  const labels = data.map(d => {
+    const start = new Date(d.week_start);
+    return `${start.getMonth() + 1}/${start.getDate()}`;
+  });
+  
+  const values = data.map(d => {
+    if (metric === 'revenue') return d.revenue / 10000; // 万円単位
+    if (metric === 'deals') return d.deals;
+    return d.appointments;
+  });
+  
+  if (weeklyChart) {
+    weeklyChart.destroy();
+  }
+  
+  weeklyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: metric === 'revenue' ? '売上（万円）' : metric === 'deals' ? '成約数' : 'アポ数',
+        data: values,
+        borderColor: '#3B82F6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              return metric === 'revenue' ? `¥${value}万` : value;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function drawMonthlyTrendChart(data) {
+  monthlyTrendData = data;
+  const ctx = document.getElementById('monthly-trend-chart');
+  if (!ctx) return;
+  
+  const metric = document.getElementById('monthly-trend-metric')?.value || 'revenue';
+  const labels = data.map(d => d.month);
+  
+  const values = data.map(d => {
+    if (metric === 'revenue') return d.revenue / 10000; // 万円単位
+    if (metric === 'deals') return d.deals;
+    return d.appointments;
+  });
+  
+  if (monthlyChart) {
+    monthlyChart.destroy();
+  }
+  
+  monthlyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: metric === 'revenue' ? '売上（万円）' : metric === 'deals' ? '成約数' : 'アポ数',
+        data: values,
+        backgroundColor: '#10B981',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              return metric === 'revenue' ? `¥${value}万` : value;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateWeeklyTrendChart() {
+  if (weeklyTrendData) {
+    drawWeeklyTrendChart(weeklyTrendData);
+  }
+}
+
+function updateMonthlyTrendChart() {
+  if (monthlyTrendData) {
+    drawMonthlyTrendChart(monthlyTrendData);
   }
 }
 

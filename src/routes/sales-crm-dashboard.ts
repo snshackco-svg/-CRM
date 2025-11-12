@@ -278,6 +278,81 @@ app.get('/', async (c) => {
     };
 
     // ===========================================
+    // 9. トレンドデータ（過去4週間）
+    // ===========================================
+    const weeklyTrends = [];
+    for (let i = 3; i >= 0; i--) {
+      const weekStartDate = new Date(weekStart);
+      weekStartDate.setDate(weekStart.getDate() - (i * 7));
+      const weekEndDate = new Date(weekStartDate);
+      weekEndDate.setDate(weekStartDate.getDate() + 6);
+      
+      const weekStartDateStr = weekStartDate.toISOString().split('T')[0];
+      const weekEndDateStr = weekEndDate.toISOString().split('T')[0];
+      
+      const weekTrendQuery = await DB.prepare(`
+        SELECT 
+          COUNT(*) as deals,
+          COALESCE(SUM(actual_value), 0) as revenue
+        FROM deals
+        WHERE owner_id = ?
+          AND stage IN ('won', 'paid')
+          AND DATE(actual_close_date) BETWEEN ? AND ?
+      `).bind(userId, weekStartDateStr, weekEndDateStr).all();
+      
+      const weekApptQuery = await DB.prepare(`
+        SELECT COUNT(*) as count
+        FROM new_appointments
+        WHERE sales_id = ?
+          AND DATE(appointment_datetime) BETWEEN ? AND ?
+      `).bind(userId, weekStartDateStr, weekEndDateStr).all();
+      
+      weeklyTrends.push({
+        week_start: weekStartDateStr,
+        week_end: weekEndDateStr,
+        deals: weekTrendQuery.results[0]?.deals || 0,
+        revenue: weekTrendQuery.results[0]?.revenue || 0,
+        appointments: weekApptQuery.results[0]?.count || 0
+      });
+    }
+
+    // ===========================================
+    // 10. トレンドデータ（過去6ヶ月）
+    // ===========================================
+    const monthlyTrends = [];
+    for (let i = 5; i >= 0; i--) {
+      const trendMonthStart = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const trendMonthEnd = new Date(today.getFullYear(), today.getMonth() - i + 1, 0);
+      
+      const trendMonthStartStr = trendMonthStart.toISOString().split('T')[0];
+      const trendMonthEndStr = trendMonthEnd.toISOString().split('T')[0];
+      
+      const monthTrendQuery = await DB.prepare(`
+        SELECT 
+          COUNT(*) as deals,
+          COALESCE(SUM(actual_value), 0) as revenue
+        FROM deals
+        WHERE owner_id = ?
+          AND stage IN ('won', 'paid')
+          AND DATE(actual_close_date) BETWEEN ? AND ?
+      `).bind(userId, trendMonthStartStr, trendMonthEndStr).all();
+      
+      const monthApptQuery = await DB.prepare(`
+        SELECT COUNT(*) as count
+        FROM new_appointments
+        WHERE sales_id = ?
+          AND DATE(appointment_datetime) BETWEEN ? AND ?
+      `).bind(userId, trendMonthStartStr, trendMonthEndStr).all();
+      
+      monthlyTrends.push({
+        month: trendMonthStart.toISOString().substring(0, 7), // YYYY-MM format
+        deals: monthTrendQuery.results[0]?.deals || 0,
+        revenue: monthTrendQuery.results[0]?.revenue || 0,
+        appointments: monthApptQuery.results[0]?.count || 0
+      });
+    }
+
+    // ===========================================
     // レスポンス構築
     // ===========================================
     return c.json({
@@ -329,7 +404,11 @@ app.get('/', async (c) => {
           total_revenue: teamWon.revenue || 0,
           pipeline_value: teamPipelineValue
         },
-        alerts
+        alerts,
+        trends: {
+          weekly: weeklyTrends,
+          monthly: monthlyTrends
+        }
       }
     });
 
