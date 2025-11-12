@@ -5278,6 +5278,12 @@ function updateDealsDisplay() {
   `;
 }
 
+// Render deals from search results
+function renderDealsFromSearch(searchResults) {
+  deals8Stage = searchResults;
+  updateDealsDisplay();
+}
+
 // Render Interactions View
 function renderInteractionsView() {
   const contentArea = document.getElementById('content-area');
@@ -6163,6 +6169,9 @@ async function renderDashboardView() {
         </h2>
         <p class="text-gray-600 text-sm">今日のタスクと営業活動の全体像</p>
       </div>
+
+      <!-- 検索セクション -->
+      <div id="search-container"></div>
 
       <!-- 上部: 今日のタスクとアポイント + 実績カード -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

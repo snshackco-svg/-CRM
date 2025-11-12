@@ -143,6 +143,7 @@ app.get('/sales-crm', (c) => {
         <script src="/static/hot-leads.js"></script>
         <script src="/static/tags-ui.js"></script>
         <script src="/static/appointment-prep.js"></script>
+        <script src="/static/advanced-search.js"></script>
         <script src="/static/sales-crm.js"></script>
     </body>
     </html>

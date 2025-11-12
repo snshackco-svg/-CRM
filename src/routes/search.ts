@@ -277,4 +277,139 @@ app.get('/sales-crm', async (c) => {
   }
 });
 
+// Get all saved searches for current user
+app.get('/saved', async (c) => {
+  try {
+    const userId = c.get('user')?.id;
+    const { DB } = c.env;
+    
+    const { results } = await DB.prepare(`
+      SELECT * FROM saved_searches
+      WHERE user_id = ?
+      ORDER BY is_default DESC, name ASC
+    `).bind(userId).all();
+    
+    return c.json({
+      success: true,
+      saved_searches: results || []
+    });
+  } catch (error: any) {
+    console.error('Get saved searches error:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// Create a new saved search
+app.post('/saved', async (c) => {
+  try {
+    const userId = c.get('user')?.id;
+    const { DB } = c.env;
+    const body = await c.req.json();
+    
+    const { name, description, search_params, is_default } = body;
+    
+    if (!name || !search_params) {
+      return c.json({ success: false, error: 'Name and search_params are required' }, 400);
+    }
+    
+    // If setting as default, unset other defaults first
+    if (is_default) {
+      await DB.prepare(`
+        UPDATE saved_searches 
+        SET is_default = 0 
+        WHERE user_id = ?
+      `).bind(userId).run();
+    }
+    
+    const result = await DB.prepare(`
+      INSERT INTO saved_searches (user_id, name, description, search_params, is_default)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(
+      userId, 
+      name, 
+      description || null, 
+      JSON.stringify(search_params),
+      is_default ? 1 : 0
+    ).run();
+    
+    return c.json({
+      success: true,
+      saved_search: {
+        id: result.meta.last_row_id,
+        name,
+        description,
+        search_params,
+        is_default: is_default ? 1 : 0
+      }
+    });
+  } catch (error: any) {
+    console.error('Create saved search error:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// Update a saved search
+app.put('/saved/:id', async (c) => {
+  try {
+    const userId = c.get('user')?.id;
+    const { DB } = c.env;
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    
+    const { name, description, search_params, is_default } = body;
+    
+    // If setting as default, unset other defaults first
+    if (is_default) {
+      await DB.prepare(`
+        UPDATE saved_searches 
+        SET is_default = 0 
+        WHERE user_id = ? AND id != ?
+      `).bind(userId, id).run();
+    }
+    
+    await DB.prepare(`
+      UPDATE saved_searches 
+      SET name = ?, description = ?, search_params = ?, is_default = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND user_id = ?
+    `).bind(
+      name,
+      description || null,
+      JSON.stringify(search_params),
+      is_default ? 1 : 0,
+      id,
+      userId
+    ).run();
+    
+    return c.json({
+      success: true,
+      saved_search: { id, name, description, search_params, is_default }
+    });
+  } catch (error: any) {
+    console.error('Update saved search error:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// Delete a saved search
+app.delete('/saved/:id', async (c) => {
+  try {
+    const userId = c.get('user')?.id;
+    const { DB } = c.env;
+    const id = c.req.param('id');
+    
+    await DB.prepare(`
+      DELETE FROM saved_searches 
+      WHERE id = ? AND user_id = ?
+    `).bind(id, userId).run();
+    
+    return c.json({
+      success: true,
+      message: 'Saved search deleted successfully'
+    });
+  } catch (error: any) {
+    console.error('Delete saved search error:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 export default app;
