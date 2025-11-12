@@ -341,7 +341,31 @@ npx wrangler pages secret put GOOGLE_VISION_API_KEY --project-name sales-crm
 
 **料金:** 1,000枚/月無料、超過分 $1.50/1,000枚
 
-#### 3. Resend API（メール送信）⚠️ 推奨
+#### 3. Perplexity API（リアルタイムWeb検索）✅ 設定済み
+
+**用途:** AI事前リサーチでのリアルタイムWeb検索、最新企業情報の取得
+
+**取得方法:**
+1. https://www.perplexity.ai/settings/api にアクセス
+2. 新しいAPIキーを作成
+
+**設定方法:**
+```bash
+# ローカル環境
+PERPLEXITY_API_KEY=pplx-...your-actual-key...
+
+# 本番環境
+npx wrangler pages secret put PERPLEXITY_API_KEY --project-name sales-crm
+```
+
+**料金:** $5無料クレジット、sonar-proモデル $0.001-0.006/リクエスト
+
+**機能:**
+- リアルタイムWeb検索による最新企業情報の取得
+- 競合分析、財務情報、ニュースの自動収集
+- AI事前リサーチの精度向上
+
+#### 4. Resend API（メール送信）⚠️ 推奨
 
 **用途:** お礼メール、フォローアップメール、提案資料メール送信
 
@@ -364,7 +388,7 @@ npx wrangler pages secret put RESEND_API_KEY --project-name sales-crm
 - Resendの`onboarding@resend.dev`が無料で使用可能
 - 独自ドメインの場合はDNS設定が必要
 
-#### 4. SendGrid API（メール送信・代替）
+#### 5. SendGrid API（メール送信・代替）
 
 **用途:** Resend APIの代替メール送信サービス
 
